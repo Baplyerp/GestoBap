@@ -26,27 +26,85 @@ export default function GestaoControlePage() {
     nivel: "Básico"
   });
 
+  // 🚀 NOVOS ESTADOS PARA O MENU DE AÇÕES DA TABELA
+  const [menuAbertoId, setMenuAbertoId] = useState<string | null>(null);
+
+  // Fecha o menu se o usuário clicar fora dele
   useEffect(() => {
-    async function carregarPainelAdmin() {
-      const { data: { user } } = await supabase.auth.getUser();
+    const handleClickFora = () => setMenuAbertoId(null);
+    window.addEventListener('click', handleClickFora);
+    return () => window.removeEventListener('click', handleClickFora);
+  }, []);
 
-      if (user) {
-        const { data: perfilExiste } = await supabase.from("perfis").select("id").eq("id", user.id).single();
-        if (!perfilExiste) {
-          await supabase.from("perfis").insert([{
-            id: user.id, nome: "Jean Batista", cargo: "CEO & Fundador", nivel: "Admin"
-          }]);
-        }
-      }
+  // Simulações das Ações do Menu
+  const handleEditarColaborador = (id: string, nome: string, cargo: string, nivel: string) => {
+    // Preenche o formulário com os dados atuais do funcionário
+    setColaboradorEditando({ id, nome, cargo: cargo || "", nivel: nivel || "Básico" });
+    setModalEdicaoAberto(true); // Abre o modal de edição
+    setMenuAbertoId(null); // Fecha o menuzinho dos 3 pontinhos
+  };
 
-      const { data: perfisData } = await supabase.from("perfis").select("*").order("nome", { ascending: true });
-      if (perfisData) setEquipe(perfisData);
+  const handleDesligarColaborador = (id: string, nome: string) => {
+    toast.error(`Desligando ${nome}...`, { description: "Em breve: Exclusão no banco de dados." });
+    setMenuAbertoId(null);
+  };
 
-      const { data: pontosData } = await supabase.from("registro_ponto").select("*").order("hora_entrada", { ascending: false });
-      if (pontosData) setPontos(pontosData);
+  // 🚀 ESTADOS DO MODAL DE EDIÇÃO
+  const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
+  const [processandoEdicao, setProcessandoEdicao] = useState(false);
+  const [colaboradorEditando, setColaboradorEditando] = useState({ id: "", nome: "", cargo: "", nivel: "" });
 
-      setLoading(false);
+  // 🚀 AÇÃO REAL DE ATUALIZAR NO BANCO
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProcessandoEdicao(true);
+
+    try {
+      const { error } = await supabase
+        .from("perfis")
+        .update({ 
+          cargo: colaboradorEditando.cargo, 
+          nivel: colaboradorEditando.nivel 
+        })
+        .eq("id", colaboradorEditando.id); // Onde o ID for igual ao do funcionário que estamos editando
+
+      if (error) throw error;
+
+      toast.success(`Perfil atualizado!`, { description: `Os dados de ${colaboradorEditando.nome} foram salvos.` });
+      setModalEdicaoAberto(false);
+      carregarPainelAdmin(); // Atualiza a tabela na hora!
+
+    } catch (erro: any) {
+      toast.error("Erro ao atualizar", { description: erro.message });
+    } finally {
+      setProcessandoEdicao(false);
     }
+  };
+
+  // 1. FUNÇÃO DE CARREGAMENTO SEPARADA (Para atualizar a tabela depois de contratar)
+  const carregarPainelAdmin = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: perfilExiste } = await supabase.from("perfis").select("id").eq("id", user.id).single();
+      if (!perfilExiste) {
+        await supabase.from("perfis").insert([{
+          id: user.id, nome: "Jean Batista", cargo: "CEO & Fundador", nivel: "Admin"
+        }]);
+      }
+    }
+
+    const { data: perfisData } = await supabase.from("perfis").select("*").order("nome", { ascending: true });
+    if (perfisData) setEquipe(perfisData);
+
+    const { data: pontosData } = await supabase.from("registro_ponto").select("*").order("hora_entrada", { ascending: false });
+    if (pontosData) setPontos(pontosData);
+
+    setLoading(false);
+  };
+
+  // 2. CHAMA A FUNÇÃO QUANDO A TELA ABRE
+  useEffect(() => {
     carregarPainelAdmin();
   }, []);
 
@@ -62,20 +120,45 @@ export default function GestaoControlePage() {
     return `ID: ${userId.substring(0, 8).toUpperCase()}`;
   };
 
-  // 🚀 AÇÃO DO BOTÃO DE SALVAR O NOVO COLABORADOR (Simulação Visual por enquanto)
-  const handleCadastrarColaborador = (e: React.FormEvent) => {
+  // 3. 🚀 AÇÃO DO BOTÃO CONECTADA AO COFRE (API)
+  const handleCadastrarColaborador = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessandoCadastro(true);
     
-    // Simula um tempinho de processamento no banco para ficar realista
-    setTimeout(() => {
-      toast.success(`${novoColaborador.nome} foi adicionado à Baply!`, {
-        description: `Um convite foi enviado para ${novoColaborador.email}`
+    try {
+      // Bate na porta do cofre e entrega a ficha do novo recruta
+      const resposta = await fetch("/api/convite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(novoColaborador),
       });
-      setProcessandoCadastro(false);
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro || "Erro desconhecido ao enviar convite.");
+      }
+
+      // Se o e-mail foi enviado e o perfil criado, avisa com estilo!
+      toast.success(`${novoColaborador.nome} recrutado com sucesso!`, {
+        description: `Um e-mail oficial foi enviado para ${novoColaborador.email}`
+      });
+
       setModalAberto(false);
-      setNovoColaborador({ nome: "", email: "", cargo: "", nivel: "Básico" }); // Limpa o form
-    }, 1500);
+      setNovoColaborador({ nome: "", email: "", cargo: "", nivel: "Básico" }); // Limpa o formulário
+      
+      // Atualiza a tabela na mesma hora
+      carregarPainelAdmin();
+
+    } catch (erro: any) {
+      toast.error("Falha na Contratação", {
+        description: erro.message
+      });
+    } finally {
+      setProcessandoCadastro(false);
+    }
   };
 
   if (loading) {
@@ -163,10 +246,46 @@ export default function GestaoControlePage() {
                         {user.nivel || 'Básico'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-stone-400 hover:text-stone-900 transition-colors p-2 rounded-lg hover:bg-stone-100 opacity-0 group-hover:opacity-100">
+                    <td className="px-6 py-4 text-right relative">
+                      {/* O botão dos 3 pontinhos */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita que o clique feche o menu imediatamente
+                          setMenuAbertoId(menuAbertoId === user.id ? null : user.id);
+                        }}
+                        className="text-stone-400 hover:text-stone-900 transition-colors p-2 rounded-lg hover:bg-stone-100"
+                      >
                         <MoreVertical size={18} />
                       </button>
+
+                      {/* O Menu Flutuante (Dropdown) */}
+                      {menuAbertoId === user.id && (
+                        <div 
+                          className="absolute right-8 top-10 w-48 bg-white rounded-xl shadow-xl shadow-stone-900/10 border border-stone-100 z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+                          onClick={(e) => e.stopPropagation()} // Mantém o menu aberto ao clicar dentro dele
+                        >
+                          <div className="py-1">
+                            <button 
+                              onClick={() => handleEditarColaborador(user.id, user.nome, user.cargo, user.nivel)}
+                              className="w-full text-left px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 transition-colors"
+                            >
+                              Editar Perfil
+                            </button>
+                            <button 
+                              className="w-full text-left px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 transition-colors"
+                            >
+                              Revogar Acesso
+                            </button>
+                            <div className="h-px bg-stone-100 my-1"></div>
+                            <button 
+                              onClick={() => handleDesligarColaborador(user.id, user.nome)}
+                              className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              Desligar Colaborador
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -179,7 +298,6 @@ export default function GestaoControlePage() {
       {/* --- ABA PONTO DIGITAL --- */}
       {abaAtiva === "ponto" && (
         <div className="bg-white rounded-[2rem] shadow-sm border border-stone-200 overflow-hidden">
-          {/* ... (Tabela de pontos continua igualzinha, apenas comprimi visualmente pra não poluir aqui) ... */}
           <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
             <h3 className="font-bold text-stone-900">Registros Recentes</h3>
           </div>
@@ -321,6 +439,69 @@ export default function GestaoControlePage() {
                 </button>
               </div>
 
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 MODAL FLUTUANTE DE EDIÇÃO 🚀 */}
+      {modalEdicaoAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setModalEdicaoAberto(false)}></div>
+          
+          <div className="relative bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-stone-100 border-2 border-[#A67B5B]/30 flex items-center justify-center text-lg shadow-sm">
+                  👨‍💼
+                </div>
+                <div>
+                  <h3 className="font-black text-stone-900 text-lg">Editar Perfil</h3>
+                  <p className="text-xs text-stone-500 font-medium">Atualize os dados de {colaboradorEditando.nome}</p>
+                </div>
+              </div>
+              <button onClick={() => setModalEdicaoAberto(false)} className="text-stone-400 hover:text-stone-900 hover:bg-stone-100 p-2 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarEdicao} className="p-8 space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Cargo</label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+                    <input 
+                      type="text" required value={colaboradorEditando.cargo}
+                      onChange={(e) => setColaboradorEditando({...colaboradorEditando, cargo: e.target.value})}
+                      className="w-full pl-11 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#A67B5B] focus:ring-1 focus:ring-[#A67B5B] transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Nível de Acesso</label>
+                  <select 
+                    value={colaboradorEditando.nivel}
+                    onChange={(e) => setColaboradorEditando({...colaboradorEditando, nivel: e.target.value})}
+                    className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#A67B5B] focus:ring-1 focus:ring-[#A67B5B] transition-all appearance-none font-medium text-stone-700"
+                  >
+                    <option value="Básico">Operacional (Básico)</option>
+                    <option value="Gerência">Gerência</option>
+                    <option value="Admin">Administrador Total</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={() => setModalEdicaoAberto(false)} className="flex-1 px-5 py-3 rounded-xl font-bold text-sm bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={processandoEdicao} className="flex-1 px-5 py-3 rounded-xl font-bold text-sm bg-stone-900 text-white hover:bg-stone-800 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-stone-900/20 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {processandoEdicao ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                  {processandoEdicao ? "Salvando..." : "Salvar Alterações"}
+                </button>
+              </div>
             </form>
           </div>
         </div>
