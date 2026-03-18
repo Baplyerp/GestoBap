@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-// Importando os nossos novos ícones premium
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase"; // Cérebro do Supabase adicionado
 import { 
   LayoutDashboard, 
   ShoppingCart, 
@@ -10,14 +10,26 @@ import {
   Package, 
   Users, 
   Megaphone, 
-  LogOut 
+  LogOut,
+  ShieldCheck // Novo ícone para a área de RH
 } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter(); // Navegador programático
+  const supabase = createClient();
 
+  // 🚀 FUNÇÃO DE DESLOGAR COM SEGURANÇA
+  const handleSair = async (e: React.MouseEvent) => {
+    e.preventDefault(); 
+    await supabase.auth.signOut(); 
+    window.location.href = "/"; // <-- Força o navegador a limpar tudo e voltar pra porta da frente!
+  };
+
+  // 🗺️ O NOSSO MAPA DE NAVEGAÇÃO ATUALIZADO
   const menuItems = [
     { nome: "Visão Global", rota: "/dashboard", Icone: LayoutDashboard },
+    { nome: "Gestão", rota: "/dashboard/configuracoes", Icone: ShieldCheck }, // <-- O Link novo do RH!
     { nome: "Vendas (PDV)", rota: "/dashboard/vendas", Icone: ShoppingCart },
     { nome: "Financeiro", rota: "/dashboard/financeiro", Icone: CircleDollarSign },
     { nome: "Estoque", rota: "/dashboard/estoque", Icone: Package },
@@ -61,16 +73,19 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Botão de Sair no rodapé, com tratamento visual de "perigo" */}
+      {/* Botão de Sair no rodapé CONECTADO AO SUPABASE */}
       <div className="p-3 mb-2">
-        <Link href="/" className="flex items-center gap-4 w-full group/item">
+        <button 
+          onClick={handleSair} 
+          className="flex items-center gap-4 w-full group/item"
+        >
           <div className="w-12 h-12 rounded-full bg-stone-800 text-stone-400 flex items-center justify-center shrink-0 transition-all duration-300 ease-out group-hover/item:scale-110 group-hover/item:bg-red-950 group-hover/item:text-red-400 group-hover/item:shadow-[0_0_15px_rgba(239,68,68,0.3)]">
             <LogOut size={22} />
           </div>
           <span className="opacity-0 group-hover:opacity-100 whitespace-nowrap font-medium text-stone-400 transition-all duration-300 origin-left scale-95 group-hover:scale-100 group-hover/item:text-red-400">
             Sair do Sistema
           </span>
-        </Link>
+        </button>
       </div>
     </aside>
   );
