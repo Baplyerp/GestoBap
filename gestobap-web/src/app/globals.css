@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
+/* 1. O comando oficial do Tailwind v4 para aceitar a classe 'dark' do nosso botão */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 2. Cores do Modo Claro (Padrão) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc; /* stone-50 */
+  --foreground: #1c1917; /* stone-900 */
+}
+
+/* 3. Cores do Modo Escuro (Ativado pelo nosso botão!) */
+.dark {
+  --background: #0a0a0a; /* stone-950 */
+  --foreground: #fafaf9; /* stone-50 */
 }
 
 @theme inline {
@@ -12,15 +22,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease; /* Transição suave */
 }
