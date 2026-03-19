@@ -125,10 +125,10 @@ export default function Header() {
 
             <div className="h-px bg-stone-100 dark:bg-stone-800 my-2"></div>
             
-            {/* 4. Radar de Governança (NOVO!) */}
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-white transition-colors text-left group/radar">
-              <Radar size={18} className="text-stone-400 group-hover/radar:text-indigo-500 transition-colors" /> Radar de Governança <span className="ml-auto text-[10px] bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full text-stone-500">Em breve</span>
-            </button>
+            {/* 4. Radar de Governança (ATIVADO!) */}
+            <Link href="/dashboard/governanca" className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-white transition-colors text-left group/radar">
+              <Radar size={18} className="text-stone-400 group-hover/radar:text-indigo-500 transition-colors" /> Radar de Governança
+            </Link>
             
           </div>
         )}
