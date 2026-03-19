@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
-import { CheckCircle2, Clock, Target, TrendingUp, Fingerprint, Users, ShieldAlert, LogOut, Loader2 } from "lucide-react";
-import { toast } from "sonner"; // <-- Adicione esta linha lá no topo!
+import { CheckCircle2, Clock, Target, Fingerprint, ShieldAlert, LogOut, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+// 👇 IMPORTAMOS A LINHA MÁGICA DO NOSSO CORAÇÃO
+import { usePerfil } from "@/contexts/PerfilContext"; 
 
 export default function DashboardPage() {
   const supabase = createClient();
@@ -13,12 +15,11 @@ export default function DashboardPage() {
   const [pontoBatido, setPontoBatido] = useState(false);
   const [pontoId, setPontoId] = useState<string | null>(null);
 
-  const [usuario, setUsuario] = useState({
-    nome: "Jean Batista",
-    cargo: "CEO & Fundador",
-    nivel: "Admin",
-    codigo: "ID: BPL-001"
-  });
+  // 🪄 A LINHA MÁGICA: O Crachá agora pega os dados vivos do Coração
+  const { nome, cargo, nivel, avatar_url } = usePerfil();
+
+  // (Mock) Mantemos o código fixo por enquanto, até termos a tabela de ID de Funcionários
+  const codigoFuncionario = "ID: BPL-001";
 
   useEffect(() => {
     async function carregarDados() {
@@ -43,7 +44,7 @@ export default function DashboardPage() {
       setLoading(false);
     }
     carregarDados();
-  }, []);
+  }, [supabase]);
 
   const handlePonto = async () => {
     setProcessandoPonto(true);
@@ -116,25 +117,31 @@ export default function DashboardPage() {
             
             <div className="p-8 relative z-10">
               <div className="flex justify-between items-start mb-10">
+                {/* 👇 O AVATAR SINCRONIZADO E COM EFEITO PRETO E BRANCO */}
                 <div className="w-24 h-24 rounded-3xl bg-stone-100 border-4 border-[#A67B5B]/30 shadow-xl flex items-center justify-center text-5xl overflow-hidden grayscale hover:grayscale-0 transition-all duration-500">
-                  👨‍💼
+                  {avatar_url ? (
+                    <img src={avatar_url} alt="Avatar do Crachá" className="w-full h-full object-cover" />
+                  ) : (
+                    "👨‍💼"
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-800/80 border border-stone-700 text-[10px] font-black text-[#A67B5B] uppercase tracking-[0.2em] backdrop-blur-md">
-                    <Fingerprint size={12} /> {usuario.codigo}
+                    <Fingerprint size={12} /> {codigoFuncionario}
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <h2 className="text-2xl font-bold text-white tracking-tight">{usuario.nome}</h2>
-                <p className="text-[#A67B5B] font-bold text-xs uppercase tracking-widest pb-6">{usuario.cargo}</p>
+                {/* 👇 DADOS VIVOS E SINCRONIZADOS */}
+                <h2 className="text-2xl font-bold text-white tracking-tight">{nome ? nome : "Carregando..."}</h2>
+                <p className="text-[#A67B5B] font-bold text-xs uppercase tracking-widest pb-6">{cargo}</p>
                 
                 <div className="space-y-3 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                   <div className="flex justify-between items-center text-[13px]">
                     <span className="text-stone-400 font-medium">Credencial</span>
                     <span className="font-bold text-stone-100 flex items-center gap-2">
-                      <ShieldAlert size={14} className="text-[#A67B5B]" /> {usuario.nivel}
+                      <ShieldAlert size={14} className="text-[#A67B5B]" /> {nivel}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-[13px]">
