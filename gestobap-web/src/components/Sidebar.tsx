@@ -28,15 +28,16 @@ export default function Sidebar() {
     window.location.href = "/"; 
   };
 
-  // 🗺️ O NOSSO MAPA DE NAVEGAÇÃO ATUALIZADO (Agora completo!)
+  // 🗺️ O NOSSO MAPA DE NAVEGAÇÃO ATUALIZADO
   const menuItems = [
     { nome: "Visão Global", rota: "/dashboard", Icone: LayoutDashboard },
     { nome: "Vendas (PDV)", rota: "/dashboard/vendas", Icone: ShoppingCart },
     { nome: "Financeiro & CRM", rota: "/dashboard/financeiro", Icone: CircleDollarSign },
     { nome: "Estoque Omni", rota: "/dashboard/estoque", Icone: Package },
     { nome: "Gestão de Tropa", rota: "/dashboard/configuracoes", Icone: ShieldCheck }, 
-    { nome: "Relatórios & DRE", rota: "/dashboard/relatorios", Icone: FileArchive }, // 👈 Nova Sala Adicionada!
-    { nome: "Governança", rota: "/dashboard/governanca", Icone: Radar }, // 👈 Nova Sala Adicionada!
+    { nome: "Marketing Studio", rota: "/dashboard/marketing", Icone: Megaphone }, // 👈 ELE VOLTOU!
+    { nome: "Relatórios & DRE", rota: "/dashboard/relatorios", Icone: FileArchive },
+    { nome: "Governança", rota: "/dashboard/governanca", Icone: Radar },
   ];
 
   return (
