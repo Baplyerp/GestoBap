@@ -12,22 +12,20 @@ import {
 } from "lucide-react";
 
 // ============================================================================
-// 🚀 CONFIGURAÇÕES GLOBAIS DA LOJA (O Pulo do Gato para o SaaS)
+// 🚀 CONFIGURAÇÕES GLOBAIS DA LOJA
 // ============================================================================
 const CONFIG_LOJA = {
   nome: "Sweet Home Enxovais",
   telefone_padrao: "5511999999999",
-  // O Lojista cadastra os próprios meios de pagamento aqui!
   metodos_pagamento: [
     { id: "pix", nome: "Pix", tipo: "avista", icone: QrCode, desc: "Transferência" },
     { id: "cartao", nome: "Cartão", tipo: "cartao", icone: SmartphoneNfc, desc: "Débito/Crédito" },
     { id: "dinheiro", nome: "Dinheiro", tipo: "dinheiro", icone: Banknote, desc: "Em Espécie" },
-    // 👇 O Crediário Dinâmico: A Sweet Home chama de "Sweet Flex"
     { id: "crediario_1", nome: "Sweet Flex", tipo: "crediario", icone: CalendarClock, desc: "Crediário Próprio" }
   ]
 };
 
-// 🚀 MOCK DE CLIENTES (Para não ficar chumbado no HTML)
+// 🚀 MOCKS (Para manter o visual perfeito)
 const CLIENTES_MOCK = [
   { id: "CLI-01", nome: "Maria Souza", telefone: "5511999999999" },
   { id: "CLI-02", nome: "Ana Costa", telefone: "5511888888888" },
@@ -55,6 +53,8 @@ const VENDAS_MOCK = [
 ];
 
 export default function FrenteDeCaixaPage() {
+  // 👇 ESTADOS DA TELA
+  const [isInicializado, setIsInicializado] = useState(false); // Trava de Segurança do Cache
   const [busca, setBusca] = useState("");
   const [carrinho, setCarrinho] = useState<any[]>([]);
   const [descontoReal, setDescontoReal] = useState<number | "">("");
@@ -73,6 +73,47 @@ export default function FrenteDeCaixaPage() {
   const [isCaixaOpen, setIsCaixaOpen] = useState(false);
   const [vendasBanco, setVendasBanco] = useState<any[]>(VENDAS_MOCK);
   const [dataCaixaFiltro, setDataCaixaFiltro] = useState(hojeStr);
+
+  // 👇 NOVO ESTADO: O Modal Premium de Esvaziar Carrinho
+  const [isConfirmarLimparOpen, setIsConfirmarLimparOpen] = useState(false);
+
+  // ==========================================================================
+  // 🛡️ A MÁGICA DA MEMÓRIA MUSCULAR (CACHE & AUTO-SAVE)
+  // ==========================================================================
+  
+  // 1. CARREGAR DO CACHE: Quando a tela abre, resgata a venda perdida
+  useEffect(() => {
+    const draftCart = localStorage.getItem("@baply_pdv_carrinho");
+    const draftDesc = localStorage.getItem("@baply_pdv_desconto");
+    const draftMetodo = localStorage.getItem("@baply_pdv_metodo");
+    const draftCliente = localStorage.getItem("@baply_pdv_cliente");
+
+    if (draftCart) setCarrinho(JSON.parse(draftCart));
+    if (draftDesc) setDescontoReal(JSON.parse(draftDesc));
+    if (draftMetodo) setMetodoPagamentoId(draftMetodo);
+    if (draftCliente) setClienteSelecionadoId(draftCliente);
+
+    setIsInicializado(true); // Autoriza a gravação a partir de agora
+  }, []);
+
+  // 2. GRAVAR NO CACHE: Salva cada letra e cada clique na hora
+  useEffect(() => {
+    if (isInicializado) {
+      localStorage.setItem("@baply_pdv_carrinho", JSON.stringify(carrinho));
+      localStorage.setItem("@baply_pdv_desconto", JSON.stringify(descontoReal));
+      localStorage.setItem("@baply_pdv_metodo", metodoPagamentoId);
+      localStorage.setItem("@baply_pdv_cliente", clienteSelecionadoId);
+    }
+  }, [carrinho, descontoReal, metodoPagamentoId, clienteSelecionadoId, isInicializado]);
+
+  // 3. A VASSOURA (Limpar o Cache)
+  const limparCachePDV = () => {
+    localStorage.removeItem("@baply_pdv_carrinho");
+    localStorage.removeItem("@baply_pdv_desconto");
+    localStorage.removeItem("@baply_pdv_metodo");
+    localStorage.removeItem("@baply_pdv_cliente");
+  };
+  // ==========================================================================
 
   const produtosFiltrados = useMemo(() => {
     const termo = busca.toLowerCase();
@@ -124,15 +165,22 @@ export default function FrenteDeCaixaPage() {
     setCarrinho(prev => prev.filter(item => item.id !== id));
   };
 
+  // 👇 Lógica Atualizada para abrir o modal em vez do window.confirm
   const limparCarrinho = () => {
-    if(window.confirm("Esvaziar o carrinho atual?")) {
-      setCarrinho([]);
-      setDescontoReal("");
-      setMetodoPagamentoId("pix");
-      setParcelasFlex(1);
-      setValorRecebidoDinheiro("");
-      setClienteSelecionadoId("");
-    }
+    setIsConfirmarLimparOpen(true);
+  };
+
+  // 👇 A Função que realmente faz a limpeza
+  const confirmarLimparCarrinho = () => {
+    setCarrinho([]);
+    setDescontoReal("");
+    setMetodoPagamentoId("pix");
+    setParcelasFlex(1);
+    setValorRecebidoDinheiro("");
+    setClienteSelecionadoId("");
+    limparCachePDV(); // 🧹 Limpa a memória pra não voltar fantasmas
+    setIsConfirmarLimparOpen(false);
+    toast.info("Carrinho esvaziado.");
   };
 
   const subtotalCarrinho = carrinho.reduce((acc, item) => acc + item.subtotal, 0);
@@ -142,28 +190,22 @@ export default function FrenteDeCaixaPage() {
   const valorParcelaFlex = totalFinal / parcelasFlex;
   const trocoCalculado = Number(valorRecebidoDinheiro) - totalFinal;
 
-  // Lógica Dinâmica do Método Selecionado
   const metodoSelecionado = CONFIG_LOJA.metodos_pagamento.find(m => m.id === metodoPagamentoId) || CONFIG_LOJA.metodos_pagamento[0];
   const clienteSelecionado = CLIENTES_MOCK.find(c => c.id === clienteSelecionadoId);
 
-  // 🚀 LÓGICA DE CROSS-SELL INTELIGENTE (I.A.)
+  // 🚀 CROSS-SELL INTELIGENTE (I.A.)
   const sugestaoIA = useMemo(() => {
     if (carrinho.length === 0) return null;
-
     const temCama = carrinho.some(i => i.id === "P001" || i.id === "P006");
     const temTravesseiro = carrinho.some(i => i.id === "P003");
-    
     if (temCama && !temTravesseiro) {
       return { ...PRODUTOS_MOCK.find(p => p.id === "P003"), motivo: "Perfeito para acompanhar o lençol novo!" };
     }
-
     const temBanho = carrinho.some(i => i.categoria === "Banho");
     const temKitLavabo = carrinho.some(i => i.id === "P005");
-
     if (temBanho && !temKitLavabo) {
       return { ...PRODUTOS_MOCK.find(p => p.id === "P005"), motivo: "Complete a renovação do seu banheiro." };
     }
-
     return null;
   }, [carrinho]);
 
@@ -184,15 +226,14 @@ export default function FrenteDeCaixaPage() {
         setIsCheckoutOpen(false);
         setIsCaixaOpen(false);
         setReciboGerado(null);
+        setIsConfirmarLimparOpen(false); // Fecha o modal de limpeza no ESC
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isCheckoutOpen, isCaixaOpen, carrinho]);
 
   const handleConfirmarVenda = () => {
-    // 🛡️ Validações Dinâmicas baseadas no "Tipo" do Método, e não no nome
     if (metodoSelecionado.tipo === "crediario" && !clienteSelecionado) {
       toast.error(`Obrigatório selecionar um cliente para vendas no ${metodoSelecionado.nome}!`);
       return;
@@ -238,11 +279,15 @@ export default function FrenteDeCaixaPage() {
       setIsCheckoutOpen(false); 
       setReciboGerado(dadosRecibo); 
       
+      // Zera a tela para a próxima venda
       setCarrinho([]);
       setDescontoReal("");
       setClienteSelecionadoId("");
       setParcelasFlex(1);
       setValorRecebidoDinheiro("");
+      
+      // 🧹 LIMPA O CACHE DA VENDA ANTIGA!
+      limparCachePDV();
       
       toast.success("Venda Finalizada!", { description: "O recibo digital foi gerado com sucesso." });
     }, 1500);
@@ -296,7 +341,6 @@ export default function FrenteDeCaixaPage() {
   const vendasFiltradasPorData = vendasBanco.filter(v => v.data_venda === dataCaixaFiltro);
   const vendasValidas = vendasFiltradasPorData.filter(v => v.status === "Concluída");
   
-  // O Histórico do Caixa agora soma baseado nos métodos de pagamento cadastrados
   const totalPix = vendasValidas.filter(v => v.metodo === "Pix").reduce((acc, v) => acc + v.total, 0);
   const totalCartao = vendasValidas.filter(v => v.metodo === "Cartão").reduce((acc, v) => acc + v.total, 0);
   const totalDinheiro = vendasValidas.filter(v => v.metodo === "Dinheiro").reduce((acc, v) => acc + v.total, 0);
@@ -304,6 +348,9 @@ export default function FrenteDeCaixaPage() {
   const totalCaixaGeral = totalPix + totalCartao + totalDinheiro + totalCrediario;
 
   const dataFormatadaExibicao = new Date(dataCaixaFiltro + "T00:00:00").toLocaleDateString('pt-BR');
+
+  // Para evitar flash de conteúdo antigo, aguardamos o cache carregar
+  if (!isInicializado) return null; 
 
   return (
     <div className="animate-in fade-in duration-500 h-[calc(100vh-100px)] flex flex-col mb-10 relative">
@@ -829,6 +876,38 @@ export default function FrenteDeCaixaPage() {
                 Nova Venda (Esc)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 NOVO MODAL PREMIUM: CONFIRMAR ESVAZIAR CARRINHO */}
+      {isConfirmarLimparOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setIsConfirmarLimparOpen(false)}></div>
+          <div className="relative bg-white dark:bg-stone-900 w-full max-w-sm rounded-[2rem] shadow-2xl p-6 flex flex-col items-center text-center animate-in zoom-in-95 duration-200 border border-stone-200 dark:border-stone-800">
+            
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-full flex items-center justify-center mb-4 border-4 border-white dark:border-stone-900 shadow-sm relative">
+               <Trash2 size={28} className="text-red-500 relative z-10" />
+            </div>
+            
+            <h3 className="font-black text-stone-900 dark:text-white text-xl mb-2">Esvaziar Carrinho?</h3>
+            <p className="text-sm text-stone-500 dark:text-stone-400 mb-8 px-2">Todos os itens e descontos aplicados serão removidos. Esta ação não pode ser desfeita.</p>
+            
+            <div className="flex gap-3 w-full">
+              <button 
+                onClick={() => setIsConfirmarLimparOpen(false)} 
+                className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmarLimparCarrinho} 
+                className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/30 active:scale-95"
+              >
+                Esvaziar
+              </button>
+            </div>
+
           </div>
         </div>
       )}

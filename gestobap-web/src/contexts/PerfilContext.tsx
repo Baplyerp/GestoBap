@@ -31,7 +31,12 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
 
   // Função que vai no cofre buscar os dados
   const carregarPerfil = async () => {
-    setCarregando(true); // Força a sentinela a avisar que está trabalhando
+    // 🛡️ O SEGREDO DA FLUIDEZ: Sincronização em Background
+    // Só mostramos a tela de loading global se não tivermos nem o email do usuário ainda
+    if (!perfil.email) {
+      setCarregando(true);
+    }
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -62,13 +67,10 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
     carregarPerfil();
 
     // 🚨 2. O GRANDE SEGREDO: O Ouvinte do Supabase!
-    // Ele fica escutando se alguém faz login ou logout na aplicação
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN") {
-        // O usuário acabou de logar! Vamos buscar o perfil dele na hora.
         carregarPerfil();
       } else if (event === "SIGNED_OUT") {
-        // O usuário saiu. Limpamos o cérebro.
         setPerfil({
           nome: "", avatar_url: "", cargo: "Colaborador", status: "Disponível", nivel: "", email: ""
         });
@@ -80,8 +82,9 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
     
     return () => {
       window.removeEventListener("perfilAtualizado", carregarPerfil);
-      authListener.subscription.unsubscribe(); // Desliga o ouvinte para não dar vazamento de memória
+      authListener.subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
   return (

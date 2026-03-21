@@ -10,9 +10,6 @@ import {
   Banknote, CalendarClock, ShieldAlert, X, ImagePlus, UploadCloud, Link as LinkIcon, ImageIcon
 } from "lucide-react";
 
-// ============================================================================
-// 🚀 MOCKS: LOGS DE AUDITORIA
-// ============================================================================
 const LOGS_MOCK = [
   { id: 1, usuario: "Maria Silva", acao: "Aprovou o relatório financeiro Q1", tempo: "Há 5 min", status: "success" },
   { id: 2, usuario: "Sistema", acao: "Backup automático do banco de dados concluído", tempo: "Há 12 min", status: "info" },
@@ -26,54 +23,72 @@ export default function GovernancaPage() {
   const supabase = createClient();
   const [abaAtiva, setAbaAtiva] = useState("loja"); 
   
-  // --------------------------------------------------------
-  // 🛡️ ESTADOS: ABA 1 (AUDITORIA E LOGS)
-  // --------------------------------------------------------
+  // 🛡️ ESTADOS: AUDITORIA
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<any[]>([]);
   const [buscaLogs, setBuscaLogs] = useState("");
   const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
 
-  // --------------------------------------------------------
-  // ⚙️ ESTADOS: DADOS DA EMPRESA & PAGAMENTOS (Supabase)
-  // --------------------------------------------------------
+  // ⚙️ ESTADOS: DADOS DA EMPRESA
   const [configId, setConfigId] = useState<string | null>(null);
-  // 👇 AGORA COM SLOGAN E BG_LOGIN
   const [dadosLoja, setDadosLoja] = useState({ nome: "", slogan: "", cnpj: "", telefone: "", logo: "", bg_login: "" });
   const [metodos, setMetodos] = useState<any[]>([]);
-  
   const [salvandoLoja, setSalvandoLoja] = useState(false);
+  const [isInicializado, setIsInicializado] = useState(false); // 👈 Nova trava para o Rascunho
+
+  // 💳 ESTADOS: PAGAMENTOS
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [novoMetodo, setNovoMetodo] = useState({ nome: "", tipo: "avista", desc: "" });
 
-  // 👇 ESTADOS PARA O MODAL PREMIUM DE IMAGENS
+  // 🖼️ ESTADOS: MODAL DE IMAGENS
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [tempLogoUrl, setTempLogoUrl] = useState("");
   const [tipoUpload, setTipoUpload] = useState<"logo" | "bg">("logo");
 
+  // 🚀 LÓGICA DE RASCUNHO E SUPABASE (O Fim da Amnésia)
   useEffect(() => {
+    // 1. Tenta puxar o Rascunho do Cache instantaneamente (Zero delay)
+    const rascunho = localStorage.getItem("@baply_draft_loja");
+    if (rascunho) {
+      setDadosLoja(JSON.parse(rascunho));
+    }
+
     async function carregarDados() {
       setLogs(LOGS_MOCK);
       const { data, error } = await supabase.from('loja_config').select('*').limit(1).single();
       
       if (data) {
         setConfigId(data.id);
-        setDadosLoja({
-          nome: data.nome_fantasia || "",
-          slogan: data.slogan || "",
-          cnpj: data.cnpj || "",
-          telefone: data.telefone || "",
-          logo: data.logo_url || "",
-          bg_login: data.bg_login || ""
-        });
         setMetodos(data.metodos_pagamento || []);
+        
+        // 2. Só substitui os dados pelo banco se NÃO houver um rascunho pendente
+        if (!rascunho) {
+          setDadosLoja({
+            nome: data.nome_fantasia || "",
+            slogan: data.slogan || "",
+            cnpj: data.cnpj || "",
+            telefone: data.telefone || "",
+            logo: data.logo_url || "",
+            bg_login: data.bg_login || ""
+          });
+        }
       } else if (error) {
         console.error("Erro ao buscar config da loja:", error);
       }
+      
       setLoading(false);
+      setIsInicializado(true); // Autoriza o sistema a começar a salvar rascunhos novos
     }
     carregarDados();
   }, [supabase]);
+
+  // 📝 AUTO-SAVE DO RASCUNHO (Salva cada letra que você digita no Cache do navegador)
+  useEffect(() => {
+    if (isInicializado) {
+      localStorage.setItem("@baply_draft_loja", JSON.stringify(dadosLoja));
+    }
+  }, [dadosLoja, isInicializado]);
+
 
   const handleGerarRelatorio = async () => {
     setGerandoRelatorio(true);
@@ -112,12 +127,13 @@ export default function GovernancaPage() {
     if (error) {
       toast.error("Erro ao salvar configurações.");
     } else {
+      // 🚀 SUCESSO! O Rascunho não é mais necessário. Limpamos o Cache.
+      localStorage.removeItem("@baply_draft_loja");
       toast.success("Identidade da loja atualizada!", { description: "As mudanças já refletem no PDV e Login." });
     }
     setSalvandoLoja(false);
   };
 
-  // 👇 NOVA LÓGICA DO MODAL (SERVE PARA LOGO E PARA FUNDO)
   const abrirModalLogo = (tipo: "logo" | "bg") => {
     setTipoUpload(tipo);
     setTempLogoUrl("");
@@ -191,14 +207,7 @@ export default function GovernancaPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-stone-400">
-        <Loader2 className="animate-spin mb-4" size={32} />
-        <p>Acessando central de governança...</p>
-      </div>
-    );
-  }
+  // ❌ REMOVEMOS a tela preta bloqueante de "Loading" para acabar com as piscadas!
 
   return (
     <div className="animate-in fade-in duration-500 mb-20 relative">
@@ -232,8 +241,15 @@ export default function GovernancaPage() {
         </div>
 
         {/* ÁREA DE CONTEÚDO */}
-        <div className="lg:col-span-9 rounded-[2rem] min-h-[600px]">
+        <div className="lg:col-span-9 rounded-[2rem] min-h-[600px] relative">
           
+          {/* Se estiver carregando, mostra um overlay suave transparente em vez de piscar a tela toda */}
+          {loading && (
+            <div className="absolute inset-0 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm z-50 rounded-[2rem] flex items-center justify-center pointer-events-none">
+              <Loader2 className="animate-spin text-[#A67B5B]" size={32} />
+            </div>
+          )}
+
           {abaAtiva === "auditoria" && (
             <div className="animate-in fade-in duration-300">
               <div className="mb-6 flex flex-col sm:flex-row gap-3 justify-end">
@@ -338,7 +354,6 @@ export default function GovernancaPage() {
                       {dadosLoja.logo ? (
                         <div className="relative group w-24 h-24 shrink-0">
                           <div className="w-full h-full rounded-2xl border border-stone-200 dark:border-stone-700 bg-white overflow-hidden shadow-sm flex items-center justify-center p-2">
-                            {/* Efeito Multiply no preview também */}
                             <img src={dadosLoja.logo} alt="Logo" className="w-full h-full object-contain mix-blend-multiply" />
                           </div>
                           <button type="button" onClick={() => handleRemoverImagem("logo")} className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white shadow-md transition-all"><Trash2 size={12} /></button>
@@ -384,7 +399,6 @@ export default function GovernancaPage() {
                     <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Nome Comercial (Fantasia)</label>
                     <input type="text" value={dadosLoja.nome} onChange={e => setDadosLoja({...dadosLoja, nome: e.target.value})} className="w-full px-4 py-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:outline-none focus:border-[#A67B5B] transition-all font-bold text-stone-900 dark:text-white" />
                   </div>
-                  {/* 👇 NOVO CAMPO: SLOGAN */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Slogan / Frase de Impacto</label>
                     <input type="text" value={dadosLoja.slogan} onChange={e => setDadosLoja({...dadosLoja, slogan: e.target.value})} placeholder="Ex: Conforto e luxo para o seu lar." className="w-full px-4 py-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:outline-none focus:border-[#A67B5B] transition-all font-medium text-stone-900 dark:text-white" />
@@ -415,9 +429,7 @@ export default function GovernancaPage() {
             <div className="bg-white dark:bg-stone-800 rounded-[2rem] border border-stone-200 dark:border-stone-700 shadow-sm animate-in fade-in duration-300 h-full flex flex-col">
               <div className="p-6 md:p-8 border-b border-stone-100 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-black text-stone-900 dark:text-white flex items-center gap-2">
-                    <CreditCard size={22} className="text-[#A67B5B]" /> Carteira do PDV
-                  </h2>
+                  <h2 className="text-xl font-black text-stone-900 dark:text-white flex items-center gap-2"><CreditCard size={22} className="text-[#A67B5B]" /> Carteira do PDV</h2>
                   <p className="text-sm font-medium text-stone-500 mt-1">Ative ou crie crediários próprios para o caixa.</p>
                 </div>
                 <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center gap-2 bg-[#A67B5B] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#8e694d] transition-all active:scale-95 shadow-md shadow-[#A67B5B]/20 shrink-0">
@@ -429,9 +441,7 @@ export default function GovernancaPage() {
                   <div key={metodo.id} className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 p-5 rounded-2xl flex flex-col justify-between group hover:border-[#A67B5B]/50 hover:shadow-md transition-all relative overflow-hidden">
                     <div className="absolute top-0 right-0 bg-stone-100 dark:bg-stone-800 text-stone-400 text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-bl-lg">Motor: {metodo.tipo}</div>
                     <div className="flex items-start gap-4 mb-4 mt-2">
-                      <div className="w-12 h-12 rounded-xl bg-[#A67B5B]/10 text-[#A67B5B] flex items-center justify-center shrink-0 border border-[#A67B5B]/20">
-                        {renderIcone(metodo.icone, "w-6 h-6")}
-                      </div>
+                      <div className="w-12 h-12 rounded-xl bg-[#A67B5B]/10 text-[#A67B5B] flex items-center justify-center shrink-0 border border-[#A67B5B]/20">{renderIcone(metodo.icone, "w-6 h-6")}</div>
                       <div>
                         <h3 className="font-black text-stone-900 dark:text-white leading-tight">{metodo.nome}</h3>
                         <p className="text-xs font-medium text-stone-500">{metodo.desc}</p>
