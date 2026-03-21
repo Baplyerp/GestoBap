@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { createClient } from "@/lib/supabase";
 
+// Define a estrutura do nosso "Coração"
 type PerfilContextData = {
   nome: string;
   avatar_url: string;
@@ -10,7 +11,7 @@ type PerfilContextData = {
   status: string;
   nivel: string;
   email: string;
-  carregando: boolean; // 👈 A nova sentinela
+  carregando: boolean; // 👈 Nossa sentinela de carregamento
   atualizarPerfil: () => void;
 };
 
@@ -18,17 +19,19 @@ const PerfilContext = createContext<PerfilContextData>({} as PerfilContextData);
 
 export function PerfilProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
-  const [carregando, setCarregando] = useState(true); // 👈 Começa esperando
+  const [carregando, setCarregando] = useState(true);
   const [perfil, setPerfil] = useState({
     nome: "",
     avatar_url: "",
     cargo: "Colaborador",
     status: "Disponível",
-    nivel: "", // 👈 Começa vazio para evitar acessos indevidos
+    nivel: "",
     email: "",
   });
 
+  // Função que vai no cofre buscar os dados
   const carregarPerfil = async () => {
+    setCarregando(true); // Força a sentinela a avisar que está trabalhando
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -42,18 +45,44 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
             nivel: db.nivel || "Básico",
             email: user.email || "",
           });
+        } else {
+          // Fallback caso o usuário logue, mas a tabela de perfil ainda não tenha sincronizado
+          setPerfil((prev) => ({ ...prev, email: user.email || "" }));
         }
       }
+    } catch (error) {
+      console.error("Erro ao carregar perfil:", error);
     } finally {
-      setCarregando(false); // 👈 Pronto! O cérebro terminou de pensar
+      setCarregando(false); // Libera a tela
     }
   };
 
   useEffect(() => {
+    // 1. Busca na primeira vez que o sistema abre
     carregarPerfil();
+
+    // 🚨 2. O GRANDE SEGREDO: O Ouvinte do Supabase!
+    // Ele fica escutando se alguém faz login ou logout na aplicação
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN") {
+        // O usuário acabou de logar! Vamos buscar o perfil dele na hora.
+        carregarPerfil();
+      } else if (event === "SIGNED_OUT") {
+        // O usuário saiu. Limpamos o cérebro.
+        setPerfil({
+          nome: "", avatar_url: "", cargo: "Colaborador", status: "Disponível", nivel: "", email: ""
+        });
+      }
+    });
+
+    // 📻 3. O RÁDIO: Escuta o sinal "perfilAtualizado" que disparamos na tela de Perfil
     window.addEventListener("perfilAtualizado", carregarPerfil);
-    return () => window.removeEventListener("perfilAtualizado", carregarPerfil);
-  }, []);
+    
+    return () => {
+      window.removeEventListener("perfilAtualizado", carregarPerfil);
+      authListener.subscription.unsubscribe(); // Desliga o ouvinte para não dar vazamento de memória
+    };
+  }, [supabase]);
 
   return (
     <PerfilContext.Provider value={{ ...perfil, carregando, atualizarPerfil: carregarPerfil }}>
@@ -62,4 +91,5 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// 🪄 A LINHA MÁGICA: O gancho que as outras telas vão usar para receber os dados!
 export const usePerfil = () => useContext(PerfilContext);

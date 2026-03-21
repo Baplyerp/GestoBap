@@ -5,19 +5,6 @@ import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, Mail, ShieldCheck, Box } from "lucide-react";
 
-// ============================================================================
-// 🚀 INTEGRAÇÃO (MOCK): PUXANDO DADOS DA GOVERNANÇA
-// Na vida real, isso virá de uma consulta ao Supabase na tabela de config da loja.
-// ============================================================================
-const CONFIG_LOJA_MOCK = {
-  nome: "Sweet Home",
-  slogan: "Conforto e luxo para o seu lar.",
-  // Experimente DELETAR o conteúdo das aspas da "logo" e do "bg_login" abaixo 
-  // para ver o sistema voltar magicamente para o "Modo Baply Original"!
-  logo: "", 
-  bg_login: "",
-};
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -28,25 +15,46 @@ export default function LoginPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [verificandoSessao, setVerificandoSessao] = useState(true);
 
+  // 🚀 O NOVO CAMALEÃO: Começa vazio. Se o banco tiver dados, ele se veste.
+  const [configLoja, setConfigLoja] = useState({
+    nome: "",
+    slogan: "Acesso restrito à equipe corporativa.", 
+    logo: "", 
+    bg_login: "",
+  });
+
   const router = useRouter();
   const supabase = createClient();
 
-  // 🚀 O PORTEIRO: Verifica a sessão ANTES de desenhar a tela
+  // 🚀 O PORTEIRO AVANÇADO: Verifica a sessão E busca a logo no banco
   useEffect(() => {
     setIsMounted(true);
     
-    const checarSessaoAtiva = async () => {
+    const inicializarSistema = async () => {
+      // 1. Busca a Configuração da Loja no Supabase
+      const { data: config } = await supabase.from('loja_config').select('*').limit(1).single();
+      
+      if (config) {
+        setConfigLoja({
+          nome: config.nome_fantasia || "",
+          // 👇 Puxa o slogan do banco, com fallback elegante
+          slogan: config.slogan || "Conforto e luxo para o seu lar.",
+          logo: config.logo_url || "",
+          // 👇 Puxa o BG do banco. Se não tiver, fica vazio (o CSS cuida de deixar escuro e bonito)
+          bg_login: config.bg_login || ""
+        });
+      }
+
+      // 2. Verifica a sessão para redirecionar ou liberar o login
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // Se já tem sessão, joga direto pro Dashboard sem a tela piscar
         router.push("/dashboard");
       } else {
-        // Se não tem, libera a tela de login para o usuário
         setVerificandoSessao(false);
       }
     };
     
-    checarSessaoAtiva();
+    inicializarSistema();
   }, [router, supabase]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -77,8 +85,8 @@ export default function LoginPage() {
     );
   }
 
-  // 🛡️ Lógica do "Camaleão": A loja tem identidade própria?
-  const temPersonalizacao = Boolean(CONFIG_LOJA_MOCK.logo && CONFIG_LOJA_MOCK.bg_login);
+  // 🛡️ Lógica do "Camaleão": A loja tem identidade própria no banco? (Logo OU Bg ativam o modo)
+  const temPersonalizacao = Boolean(configLoja.logo || configLoja.bg_login);
 
   return (
     <div className="min-h-screen flex bg-stone-50 font-sans animate-in fade-in duration-500">
@@ -86,35 +94,48 @@ export default function LoginPage() {
       {/* ====================================================================== */}
       {/* 🎨 LADO ESQUERDO: O PALCO (Alterna entre Baply e a Marca do Cliente) */}
       {/* ====================================================================== */}
-      <div className="hidden lg:flex lg:w-1/2 bg-stone-900 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-stone-900 p-12 flex-col justify-between relative overflow-hidden group">
         
         {temPersonalizacao ? (
-          // 🌟 CENÁRIO A: MARCA DO CLIENTE (Ex: Sweet Home)
+          // 🌟 CENÁRIO A: MARCA DO CLIENTE (Puxado do Supabase)
           <>
-            {/* Foto de Fundo da Loja (Com overlay escuro para o texto ler bem) */}
-            <div className="absolute inset-0 z-0">
-              <img src={CONFIG_LOJA_MOCK.bg_login} alt="Fundo" className="w-full h-full object-cover opacity-40 animate-in zoom-in-105 duration-1000" />
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-900/60 to-transparent"></div>
+            <div className="absolute inset-0 z-0 bg-stone-950">
+              {configLoja.bg_login && (
+                <img src={configLoja.bg_login} alt="Fundo" className="w-full h-full object-cover opacity-30 animate-in zoom-in-105 duration-1000" />
+              )}
+              {/* ✨ Efeito Mágico: Orbs e Poeira Cósmica no BG para dar ar premium */}
+              <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-[#A67B5B] rounded-full blur-[180px] opacity-20 animate-pulse duration-10000 mix-blend-screen pointer-events-none"></div>
+              <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-stone-500 rounded-full blur-[200px] opacity-10 mix-blend-screen pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-900/60 to-transparent pointer-events-none"></div>
             </div>
 
-            <div className="relative z-10 flex items-center gap-4 animate-in slide-in-from-left-8 duration-700">
-              <img src={CONFIG_LOJA_MOCK.logo} alt="Logo" className="w-16 h-16 rounded-2xl shadow-2xl border-2 border-white/10" />
+            <div className="relative z-10 flex flex-col justify-center gap-4 animate-in slide-in-from-left-8 duration-700">
+              {configLoja.logo && (
+                <div className="relative flex items-center justify-start w-32 h-32 md:w-40 md:h-40 mb-2 transition-transform hover:scale-105 duration-500">
+                  {/* ✨ O TRUQUE DE MESTRE: Aura de Luz Branca que derrete o fundo branco de JPEGs */}
+                  <div className="absolute inset-0 bg-white/80 rounded-full blur-3xl opacity-80 mix-blend-screen pointer-events-none"></div>
+                  <img 
+                    src={configLoja.logo} 
+                    alt="Logo" 
+                    className="relative z-10 w-full h-full object-contain filter drop-shadow-2xl mix-blend-multiply brightness-110" 
+                  />
+                </div>
+              )}
             </div>
 
             <div className="relative z-10 animate-in slide-in-from-bottom-8 duration-700 delay-150">
-              <h1 className="text-5xl font-black text-white tracking-tight leading-tight mb-4">
+              <h1 className="text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight mb-4 drop-shadow-xl">
                 Workspace <br/>
-                <span className="text-[#A67B5B]">{CONFIG_LOJA_MOCK.nome}</span>
+                <span className="text-[#A67B5B]">{configLoja.nome}</span>
               </h1>
-              <p className="text-stone-300 text-lg font-medium max-w-md">
-                {CONFIG_LOJA_MOCK.slogan}
+              <p className="text-stone-300 text-lg lg:text-xl font-medium max-w-md border-l-2 border-[#A67B5B] pl-4 opacity-90">
+                {configLoja.slogan}
               </p>
             </div>
           </>
         ) : (
           // 🔵 CENÁRIO B: FALLBACK BAPLY (Original e Intacto)
           <>
-            {/* Efeitos de Fundo Elegantes */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-30">
               <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#A67B5B] rounded-full blur-[120px]"></div>
               <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-stone-800 rounded-full blur-[150px]"></div>
@@ -144,7 +165,7 @@ export default function LoginPage() {
 
         {/* Selo de Segurança (Fica igual nos dois cenários) */}
         <div className="relative z-10 flex items-center gap-2 text-stone-400 text-sm font-medium animate-in fade-in duration-1000 delay-300">
-          <ShieldCheck size={18} className={temPersonalizacao ? "text-emerald-500" : "text-[#A67B5B]"} />
+          <ShieldCheck size={18} className={temPersonalizacao ? "text-[#A67B5B]" : "text-[#A67B5B]"} />
           <span>Ambiente corporativo seguro</span>
         </div>
       </div>
@@ -154,15 +175,17 @@ export default function LoginPage() {
       {/* ====================================================================== */}
       <div className="w-full lg:w-1/2 flex flex-col p-8 sm:p-12 relative z-10 bg-stone-50">
         
-        {/* Container que centraliza o form */}
         <div className="flex-1 flex items-center justify-center">
           <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
             
             <div className="mb-10 text-center lg:text-left">
               {/* Logo para versão Mobile */}
               <div className="lg:hidden mx-auto mb-6 flex justify-center">
-                {temPersonalizacao ? (
-                   <img src={CONFIG_LOJA_MOCK.logo} className="w-20 h-20 rounded-3xl shadow-xl border-2 border-stone-200" />
+                {temPersonalizacao && configLoja.logo ? (
+                  <div className="relative w-24 h-24">
+                     {/* No mobile também removemos o fundo branco via CSS */}
+                     <img src={configLoja.logo} className="w-full h-full object-contain mix-blend-multiply drop-shadow-md" />
+                  </div>
                 ) : (
                   <div className="w-16 h-16 rounded-2xl bg-stone-900 flex items-center justify-center text-[#A67B5B] font-black text-3xl shadow-lg">
                     B
@@ -172,7 +195,7 @@ export default function LoginPage() {
 
               <h2 className="text-3xl font-black text-stone-900 tracking-tight">Bem-vindo de volta</h2>
               <p className="text-stone-500 font-medium mt-2">
-                {temPersonalizacao ? `Acesso restrito à equipe ${CONFIG_LOJA_MOCK.nome}.` : "Insira suas credenciais corporativas."}
+                {temPersonalizacao ? `Acesso restrito à equipe ${configLoja.nome}.` : "Insira suas credenciais corporativas."}
               </p>
             </div>
 
@@ -227,7 +250,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* 👇 A ASSINATURA DE GRIFE */}
+        {/* 👇 A ASSINATURA DE GRIFE (Sempre visível no rodapé) */}
         <div className="mt-8 flex justify-center animate-in fade-in duration-1000 delay-500">
           <div className="flex items-center gap-2 px-4 py-2 bg-stone-200/50 rounded-full text-stone-400 opacity-60 hover:opacity-100 transition-opacity cursor-default">
             <Box size={14} />

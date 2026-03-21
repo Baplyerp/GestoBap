@@ -36,27 +36,35 @@ export default function DashboardPage() {
     else if (hora < 18) setSaudacao("Boa tarde");
     else setSaudacao("Boa noite");
 
+    // 🚀 LÓGICA ANTI-TRAVAMENTO (Lê o cache instantâneo em vez de ir ao servidor)
     async function carregarDados() {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        // Busca o último ponto
-        const { data: historicoPonto } = await supabase
-          .from("registro_ponto")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("hora_entrada", { ascending: false })
-          .limit(1);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          // Busca o último ponto
+          const { data: historicoPonto, error } = await supabase
+            .from("registro_ponto")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .order("hora_entrada", { ascending: false })
+            .limit(1);
 
-        if (historicoPonto && historicoPonto.length > 0) {
-          if (historicoPonto[0].hora_saida === null) {
-            setPontoBatido(true);
-            setPontoId(historicoPonto[0].id);
+          if (!error && historicoPonto && historicoPonto.length > 0) {
+            if (historicoPonto[0].hora_saida === null) {
+              setPontoBatido(true);
+              setPontoId(historicoPonto[0].id);
+            }
           }
         }
+      } catch (error) {
+        console.error("Erro silencioso ao buscar ponto:", error);
+      } finally {
+        // Aconteça o que acontecer, libera a tela! Fim do bug do F5.
+        setLoading(false);
       }
-      setLoading(false);
     }
+    
     carregarDados();
   }, [supabase]);
 
