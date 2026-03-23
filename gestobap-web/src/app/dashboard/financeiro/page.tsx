@@ -9,7 +9,7 @@ import {
   BrainCircuit, CheckCircle2, ChevronRight, X, 
   CalendarDays, SmartphoneNfc, ArrowUpRight, ArrowDownRight,
   MessageCircleHeart, Loader2, Landmark, Sparkles,
-  Bot, History, Wallet, Target
+  Bot, History, Wallet, Target, UserPlus, MapPin, Edit2, Trash2
 } from "lucide-react";
 
 // ============================================================================
@@ -21,51 +21,62 @@ const DESPESAS_MOCK = [
   { id: "DESP-003", descricao: "Tráfego Pago (Instagram Ads)", valor: 500.00, vencimento: "2026-03-15", status: "Pago", categoria: "Marketing" },
 ];
 
-const CRM_MOCK = [
-  { id: "CLI-101", cliente: "Ana Costa", telefone: "5511999999999", valor_pendente: 145.00, atraso: 12, status_divida: "Atrasado", risco: "Atenção", ltv: 1250.00, cashback: 15.00, ultima_interacao: "Lembrete via IA (Há 2 dias)" },
-  { id: "CLI-102", cliente: "Maria Souza", telefone: "5511888888888", valor_pendente: 89.90, atraso: 0, status_divida: "No Prazo", risco: "Excelente", ltv: 3400.00, cashback: 45.50, ultima_interacao: "Agradecimento (Há 1 mês)" },
-  { id: "CLI-103", cliente: "Juliana Silva", telefone: "5511777777777", valor_pendente: 450.00, atraso: 45, status_divida: "Crítico", risco: "Crítico", ltv: 450.00, cashback: 0.00, ultima_interacao: "Promessa Quebrada (Há 15 dias)" },
+// O DIRETÓRIO CENTRAL DE CLIENTES
+const CLIENTES_MOCK = [
+  { id: "CLI-101", cliente: "Ana Costa", telefone: "5511999999999", endereco: "Rua das Flores, 123 - Centro", valor_pendente: 145.00, atraso: 12, status_divida: "Atrasado", risco: "Atenção", ltv: 1250.00, cashback: 15.00, ultima_interacao: "Lembrete via IA (Há 2 dias)" },
+  { id: "CLI-102", cliente: "Maria Souza", telefone: "5511888888888", endereco: "Av. Paulista, 1000 - Bela Vista", valor_pendente: 89.90, atraso: 0, status_divida: "No Prazo", risco: "Excelente", ltv: 3400.00, cashback: 45.50, ultima_interacao: "Agradecimento (Há 1 mês)" },
+  { id: "CLI-103", cliente: "Juliana Silva", telefone: "5511777777777", endereco: "Rua Augusta, 500 - Consolação", valor_pendente: 450.00, atraso: 45, status_divida: "Crítico", risco: "Crítico", ltv: 450.00, cashback: 0.00, ultima_interacao: "Promessa Quebrada (Há 15 dias)" },
 ];
 
 export default function FinanceiroCRMPage() {
   const supabase = createClient();
 
-  const [abaAtiva, setAbaAtiva] = useState("crm"); 
+  const [abaAtiva, setAbaAtiva] = useState("clientes"); // Começando na nova aba
   const [loading, setLoading] = useState(true);
   const [isInicializado, setIsInicializado] = useState(false);
   
+  // ESTADOS DO CRM DE COBRANÇA
   const [modalCobranca, setModalCobranca] = useState(false);
   const [clienteAlvo, setClienteAlvo] = useState<any>(null);
-  
   const [estrategiaIA, setEstrategiaIA] = useState("amigavel");
   const [gerandoMensagem, setGerandoMensagem] = useState(false);
   const [mensagemGerada, setMensagemGerada] = useState("");
-  const [automacaoLigada, setAutomacaoLigada] = useState(false); // 👈 Gatilho para o futuro Zap Automático
+  const [automacaoLigada, setAutomacaoLigada] = useState(false);
 
+  // ESTADOS DO CEO IA
   const [analisandoDados, setAnalisandoDados] = useState(false);
   const [relatorioCEO, setRelatorioCEO] = useState("");
 
+  // 👇 NOVOS ESTADOS: CARTEIRA DE CLIENTES
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [modalNovoCliente, setModalNovoCliente] = useState(false);
+  const [formCliente, setFormCliente] = useState({ nome: "", telefone: "", cpf: "", endereco: "" });
+  const [salvandoCliente, setSalvandoCliente] = useState(false);
+
   const receitaMes = 18450.00;
   const despesasPagas = DESPESAS_MOCK.filter(d => d.status === "Pago").reduce((acc, d) => acc + d.valor, 0);
-  const totalReceber = CRM_MOCK.reduce((acc, r) => acc + r.valor_pendente, 0);
-  const inadimplencia = CRM_MOCK.filter(r => r.atraso > 0).reduce((acc, r) => acc + r.valor_pendente, 0);
+  const totalReceber = CLIENTES_MOCK.reduce((acc, r) => acc + r.valor_pendente, 0);
+  const inadimplencia = CLIENTES_MOCK.filter(r => r.atraso > 0).reduce((acc, r) => acc + r.valor_pendente, 0);
   const lucroLiquidoAtual = receitaMes - despesasPagas;
 
   // ==========================================================================
-  // 🛡️ MEMÓRIA MUSCULAR DO CRM (AUTO-SAVE)
-  // Evita perder a mensagem da IA se a vendedora for no WhatsApp e o navegador recarregar
+  // 🛡️ MEMÓRIA MUSCULAR DO CRM E CADASTRO (AUTO-SAVE)
   // ==========================================================================
   useEffect(() => {
+    // Memória da Cobrança
     const draftMsg = localStorage.getItem("@baply_crm_msg");
     const draftEstrategia = localStorage.getItem("@baply_crm_estrategia");
     const draftClienteId = localStorage.getItem("@baply_crm_cliente_id");
 
+    // Memória do Cadastro de Cliente
+    const draftFormCliente = localStorage.getItem("@baply_crm_form_novo_cli");
+
     if (draftMsg) setMensagemGerada(draftMsg);
     if (draftEstrategia) setEstrategiaIA(draftEstrategia);
+    if (draftFormCliente) setFormCliente(JSON.parse(draftFormCliente));
     
-    // Se tinha um cliente em atendimento, reabre o modal silenciosamente
     if (draftClienteId) {
-      const cli = CRM_MOCK.find(c => c.id === draftClienteId);
+      const cli = CLIENTES_MOCK.find(c => c.id === draftClienteId);
       if (cli) {
         setClienteAlvo(cli);
         setModalCobranca(true);
@@ -77,12 +88,17 @@ export default function FinanceiroCRMPage() {
   }, []);
 
   useEffect(() => {
-    if (isInicializado && modalCobranca && clienteAlvo) {
-      localStorage.setItem("@baply_crm_msg", mensagemGerada);
-      localStorage.setItem("@baply_crm_estrategia", estrategiaIA);
-      localStorage.setItem("@baply_crm_cliente_id", clienteAlvo.id);
+    if (isInicializado) {
+      if (modalCobranca && clienteAlvo) {
+        localStorage.setItem("@baply_crm_msg", mensagemGerada);
+        localStorage.setItem("@baply_crm_estrategia", estrategiaIA);
+        localStorage.setItem("@baply_crm_cliente_id", clienteAlvo.id);
+      }
+      if (modalNovoCliente) {
+        localStorage.setItem("@baply_crm_form_novo_cli", JSON.stringify(formCliente));
+      }
     }
-  }, [mensagemGerada, estrategiaIA, clienteAlvo, modalCobranca, isInicializado]);
+  }, [mensagemGerada, estrategiaIA, clienteAlvo, modalCobranca, formCliente, modalNovoCliente, isInicializado]);
 
   const fecharModalCRM = () => {
     setModalCobranca(false);
@@ -93,15 +109,34 @@ export default function FinanceiroCRMPage() {
     localStorage.removeItem("@baply_crm_cliente_id");
   };
 
+  const fecharModalNovoCliente = () => {
+    setModalNovoCliente(false);
+    setFormCliente({ nome: "", telefone: "", cpf: "", endereco: "" });
+    localStorage.removeItem("@baply_crm_form_novo_cli");
+  };
+
   // ==========================================================================
 
   const abrirCobranca = (cliente: any) => {
     setClienteAlvo(cliente);
-    // Se for um cliente diferente do que estava no cache, limpa a mensagem
-    if (clienteAlvo?.id !== cliente.id) {
-      setMensagemGerada("");
-    }
+    if (clienteAlvo?.id !== cliente.id) setMensagemGerada("");
     setModalCobranca(true);
+  };
+
+  const salvarNovoCliente = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formCliente.nome || !formCliente.telefone) {
+      toast.error("Nome e WhatsApp são obrigatórios!");
+      return;
+    }
+    
+    setSalvandoCliente(true);
+    setTimeout(() => {
+      // 🚀 AQUI ENTRARÁ O INSERT NO SUPABASE FUTURAMENTE
+      toast.success(`${formCliente.nome} cadastrada com sucesso!`);
+      setSalvandoCliente(false);
+      fecharModalNovoCliente();
+    }, 1500);
   };
 
   const gerarMensagemIA = () => {
@@ -141,6 +176,11 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
     }, 2500);
   };
 
+  const clientesFiltrados = CLIENTES_MOCK.filter(c => 
+    c.cliente.toLowerCase().includes(buscaCliente.toLowerCase()) || 
+    c.telefone.includes(buscaCliente)
+  );
+
   if (loading) return null;
 
   return (
@@ -150,11 +190,11 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
       <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-900 dark:bg-stone-100 text-[#A67B5B] text-xs font-bold mb-4 shadow-sm">
-            <Landmark size={14} /> Centro Financeiro & Growth
+            <Landmark size={14} /> Centro Operacional Baply
           </div>
-          <h1 className="text-4xl font-black text-stone-900 dark:text-white tracking-tight transition-colors">Cérebro Financeiro & CRM</h1>
+          <h1 className="text-4xl font-black text-stone-900 dark:text-white tracking-tight transition-colors">CRM, Clientes & Financeiro</h1>
           <p className="text-stone-500 dark:text-stone-400 font-medium mt-1 transition-colors">
-            Monitore o DRE, controle despesas e maximize o LTV (Valor do Cliente) com Inteligência Artificial.
+            Gerencie sua base de clientes, recupere inadimplentes e cruze dados financeiros reais.
           </p>
         </div>
       </div>
@@ -210,9 +250,13 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
       </div>
 
       {/* 🧭 NAVEGAÇÃO DE ABAS */}
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-stone-200 dark:border-stone-700 mb-8 transition-colors">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-stone-200 dark:border-stone-700 mb-8 transition-colors overflow-x-auto whitespace-nowrap scrollbar-hide">
+        {/* 👇 NOVA ABA: CARTEIRA DE CLIENTES */}
+        <button onClick={() => setAbaAtiva("clientes")} className={`pb-4 text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-all border-b-2 ${abaAtiva === "clientes" ? "border-indigo-500 text-stone-900 dark:text-white" : "border-transparent text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"}`}>
+          <Users size={18} className={`transition-all ${abaAtiva === "clientes" ? "text-indigo-500 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)] scale-110" : ""}`} /> Diretório de Clientes
+        </button>
         <button onClick={() => setAbaAtiva("crm")} className={`pb-4 text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-all border-b-2 ${abaAtiva === "crm" ? "border-rose-500 text-stone-900 dark:text-white" : "border-transparent text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"}`}>
-          <Users size={18} className={`transition-all ${abaAtiva === "crm" ? "text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.5)] scale-110" : ""}`} /> LTV & CRM (Recuperação)
+          <Target size={18} className={`transition-all ${abaAtiva === "crm" ? "text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.5)] scale-110" : ""}`} /> LTV & Cobrança (CRM)
         </button>
         <button onClick={() => setAbaAtiva("visao_geral")} className={`pb-4 text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-all border-b-2 ${abaAtiva === "visao_geral" ? "border-[#A67B5B] text-stone-900 dark:text-white" : "border-transparent text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"}`}>
           <TrendingUp size={18} className={`transition-all ${abaAtiva === "visao_geral" ? "text-[#A67B5B] drop-shadow-[0_0_8px_rgba(166,123,91,0.5)] scale-110" : ""}`} /> Dashboard DRE
@@ -224,6 +268,112 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
           <BrainCircuit size={18} className={`transition-all ${abaAtiva === "ceo_ia" ? "text-indigo-500 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)] scale-110" : ""}`} /> CEO Artificial
         </button>
       </div>
+
+      {/* ====================================================================== */}
+      {/* 👥 ABA 0: CARTEIRA DE CLIENTES (O NOVO DIRETÓRIO) */}
+      {/* ====================================================================== */}
+      {abaAtiva === "clientes" && (
+        <div className="bg-white dark:bg-stone-800 rounded-[2rem] shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden transition-colors animate-in fade-in duration-300">
+          
+          <div className="p-6 border-b border-stone-100 dark:border-stone-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-indigo-50/30 dark:bg-indigo-500/5 shrink-0">
+            <div>
+              <h3 className="font-black text-stone-900 dark:text-white flex items-center gap-2">
+                <Users size={18} className="text-indigo-500" /> Carteira de Clientes
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">A base central da loja. Estes dados integram com o PDV e o CRM de cobrança.</p>
+            </div>
+            
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
+                <input 
+                  type="text" 
+                  value={buscaCliente}
+                  onChange={(e) => setBuscaCliente(e.target.value)}
+                  placeholder="Buscar por nome ou Zap..." 
+                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition-all text-stone-900 dark:text-white shadow-sm" 
+                />
+              </div>
+              
+              <button 
+                onClick={() => setModalNovoCliente(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-black bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md active:scale-95 shrink-0"
+              >
+                <UserPlus size={18} /> Novo Cadastro
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto min-h-[400px]">
+            <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr className="bg-stone-50 dark:bg-stone-900/50 border-b border-stone-100 dark:border-stone-700 text-[10px] uppercase tracking-widest text-stone-500 dark:text-stone-400 font-bold">
+                  <th className="p-5">Nome & Contato</th>
+                  <th className="p-5">Endereço Principal</th>
+                  <th className="p-5 text-right">Estatísticas de Compra</th>
+                  <th className="p-5 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 dark:divide-stone-700/50">
+                {clientesFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-12 text-center text-stone-400">
+                      <Users size={48} className="mx-auto mb-3 opacity-20" />
+                      <p className="font-bold">Nenhum cliente encontrado.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  clientesFiltrados.map((cli) => (
+                    <tr key={cli.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors">
+                      <td className="p-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-100 dark:border-indigo-500/20">
+                            {cli.cliente.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                              {cli.cliente} <span className="text-[9px] bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300 px-1.5 py-0.5 rounded font-mono">{cli.id}</span>
+                            </p>
+                            <p className="text-xs font-medium text-stone-500 dark:text-stone-400 font-mono mt-0.5 flex items-center gap-1">
+                              <MessageCircle size={10} className="text-emerald-500"/> {cli.telefone}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      
+                      <td className="p-5">
+                        <p className="text-xs font-medium text-stone-600 dark:text-stone-300 max-w-xs line-clamp-2">
+                          {cli.endereco || <span className="italic opacity-50">Endereço não cadastrado</span>}
+                        </p>
+                      </td>
+                      
+                      <td className="p-5 text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">LTV: R$ {cli.ltv.toFixed(2).replace('.', ',')}</p>
+                          <span className="inline-flex items-center gap-1 bg-[#A67B5B]/10 text-[#A67B5B] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-0.5">
+                            <Wallet size={10} /> + R$ {cli.cashback.toFixed(2).replace('.', ',')}
+                          </span>
+                        </div>
+                      </td>
+                      
+                      <td className="p-5 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button className="p-2 bg-stone-100 dark:bg-stone-900 text-stone-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 rounded-lg transition-colors" title="Editar">
+                            <Edit2 size={16} />
+                          </button>
+                          <button className="p-2 bg-stone-100 dark:bg-stone-900 text-stone-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-lg transition-colors" title="Excluir">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* --- ABA 1: CRM & LTV (A MÁQUINA DE DINHEIRO) --- */}
       {abaAtiva === "crm" && (
@@ -269,7 +419,7 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 dark:divide-stone-700/50">
-                {CRM_MOCK.map((rec) => (
+                {CLIENTES_MOCK.map((rec) => (
                   <tr key={rec.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors">
                     <td className="p-5">
                       <p className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
@@ -302,7 +452,6 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
                       )}
                     </td>
 
-                    {/* 💡 A MÁGICA DO LTV E CASHBACK */}
                     <td className="p-5 text-right">
                       <div className="flex flex-col items-end gap-1">
                         <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Total Comprado (LTV)</span>
@@ -396,6 +545,101 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
                   }} />
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================== */}
+      {/* 🚀 SLIDE-OVER: MODAL DE NOVO CLIENTE */}
+      {/* ====================================================================== */}
+      {modalNovoCliente && (
+        <div className="fixed inset-0 z-[60] flex justify-end animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={fecharModalNovoCliente}></div>
+
+          <div className="relative w-full max-w-lg bg-stone-50 dark:bg-stone-900 h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col border-l border-stone-200 dark:border-stone-800">
+            
+            <div className="p-6 border-b border-stone-200 dark:border-stone-800 flex justify-between items-center bg-white dark:bg-stone-950 shrink-0">
+              <div>
+                <h2 className="text-xl font-black text-stone-900 dark:text-white flex items-center gap-2">
+                  <UserPlus size={20} className="text-indigo-500" /> Cadastrar Cliente
+                </h2>
+                <p className="text-sm font-medium text-stone-500">Amplie sua base central de contatos.</p>
+              </div>
+              <button onClick={fecharModalNovoCliente} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              
+              {/* O BUSCADOR MÁGICO DE CEP (Legado Premium do Streamlit) */}
+              <div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl p-5 mb-6">
+                <label className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                  <MapPin size={14} /> Auto-Preenchimento por CEP
+                </label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Ex: 01001-000" 
+                    className="w-full px-4 py-2.5 bg-white dark:bg-stone-950 border border-indigo-200 dark:border-indigo-500/30 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition-all font-medium text-stone-700 dark:text-stone-300 shadow-sm"
+                  />
+                  <button onClick={() => toast.info("Integração com ViaCEP em breve!")} className="bg-indigo-600 text-white px-4 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm shrink-0">
+                    Buscar
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={salvarNovoCliente} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Nome Completo *</label>
+                  <input 
+                    type="text" required
+                    value={formCliente.nome} onChange={e => setFormCliente({...formCliente, nome: e.target.value})}
+                    placeholder="Ex: Ana Costa" 
+                    className="w-full px-4 py-3 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition-all text-stone-900 dark:text-white shadow-sm font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">WhatsApp *</label>
+                    <input 
+                      type="text" required
+                      value={formCliente.telefone} onChange={e => setFormCliente({...formCliente, telefone: e.target.value})}
+                      placeholder="(11) 99999-9999" 
+                      className="w-full px-4 py-3 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition-all text-stone-900 dark:text-white shadow-sm font-medium"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">CPF / CNPJ</label>
+                    <input 
+                      type="text" 
+                      value={formCliente.cpf} onChange={e => setFormCliente({...formCliente, cpf: e.target.value})}
+                      placeholder="000.000.000-00" 
+                      className="w-full px-4 py-3 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition-all text-stone-900 dark:text-white shadow-sm font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Endereço Completo</label>
+                  <textarea 
+                    value={formCliente.endereco} onChange={e => setFormCliente({...formCliente, endereco: e.target.value})}
+                    placeholder="Rua, Número, Bairro, Cidade - UF" rows={3}
+                    className="w-full px-4 py-3 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition-all text-stone-900 dark:text-white shadow-sm resize-none font-medium"
+                  />
+                </div>
+
+                <button 
+                  type="submit" disabled={salvandoCliente}
+                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white font-black text-lg py-4 rounded-xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-600/30 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                >
+                  {salvandoCliente ? <Loader2 size={24} className="animate-spin" /> : <Save size={24} />} 
+                  {salvandoCliente ? "Salvando no Cofre..." : "Salvar Cliente"}
+                </button>
+              </form>
+
             </div>
           </div>
         </div>
