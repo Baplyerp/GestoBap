@@ -10,7 +10,7 @@ import {
   CalendarDays, SmartphoneNfc, ArrowUpRight, ArrowDownRight,
   MessageCircleHeart, Loader2, Landmark, Sparkles,
   Bot, History, Wallet, Target, UserPlus, MapPin, Edit2, Trash2, Save,
-  Building2, SearchCode, Handshake, ScrollText, Factory
+  Building2, SearchCode, Handshake, ScrollText, Factory, Plus
 } from "lucide-react";
 
 // ============================================================================
