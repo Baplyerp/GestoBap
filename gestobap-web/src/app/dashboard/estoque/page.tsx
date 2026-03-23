@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { 
   PackageSearch, Plus, Search, MoreVertical, 
-  Image as ImageIcon, AlertOctagon, TrendingUp, MonitorSmartphone,
+  Image as ImageIcon, AlertOctagon, TrendingUp, TrendingDown, MonitorSmartphone,
   UploadCloud, FileText, Bot, Layers, Edit3, Trash2, RefreshCw, X,
   CheckCircle2, Globe, Tag, DollarSign, ListOrdered, Palette, Sparkles,
   Filter, ShieldCheck, Loader2, History, Truck, Calculator, Tags
