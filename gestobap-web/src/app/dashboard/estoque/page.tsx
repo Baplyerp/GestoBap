@@ -7,7 +7,8 @@ import {
   Image as ImageIcon, AlertOctagon, TrendingUp, TrendingDown, MonitorSmartphone,
   UploadCloud, FileText, Bot, Layers, Edit3, Trash2, RefreshCw, X,
   CheckCircle2, Globe, Tag, DollarSign, ListOrdered, Palette, Sparkles,
-  Filter, ShieldCheck, Loader2, History, Truck, Calculator, Tags
+  Filter, ShieldCheck, Loader2, History, Truck, Calculator, Tags,
+  ArrowUpRight, ArrowDownRight
 } from "lucide-react";
 
 // ============================================================================
