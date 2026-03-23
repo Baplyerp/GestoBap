@@ -9,7 +9,7 @@ import {
   BrainCircuit, CheckCircle2, ChevronRight, X, 
   CalendarDays, SmartphoneNfc, ArrowUpRight, ArrowDownRight,
   MessageCircleHeart, Loader2, Landmark, Sparkles,
-  Bot, History, Wallet, Target, UserPlus, MapPin, Edit2, Trash2
+  Bot, History, Wallet, Target, UserPlus, MapPin, Edit2, Trash2, Save
 } from "lucide-react";
 
 // ============================================================================
