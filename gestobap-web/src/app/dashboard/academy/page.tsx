@@ -523,7 +523,7 @@ export default function BaplyAcademyPage() {
 
                         <div className="bg-stone-50 dark:bg-stone-950 rounded-2xl p-4 mb-6 border border-stone-100 dark:border-stone-800">
                           <div className="flex justify-between items-center mb-2">
-                            <p className="text-xs font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">Curso Reivindicado <HelpCircle size={12} className="cursor-help" title="Regra: Verifique se a carga horária do certificado é igual ou maior que a exigida."/></p>
+                            <p className="text-xs font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">Curso Reivindicado <span title="Regra: Verifique se a carga horária do certificado é igual ou maior que a exigida."><HelpCircle size={12} className="cursor-help" /></span></p>
                             <span className="text-[10px] bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-2 py-0.5 rounded font-mono">{pendente.instituicao}</span>
                           </div>
                           <p className="text-base font-bold text-stone-900 dark:text-white truncate mb-1">{pendente.curso}</p>
