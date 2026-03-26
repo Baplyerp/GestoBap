@@ -9,7 +9,7 @@ import {
   Target, 
   Activity,
   Radar,
-  GraduationCap // 👈 O ícone da nossa Universidade importado aqui
+  GraduationCap
 } from "lucide-react";
 
 import { usePerfil } from "@/contexts/PerfilContext"; 
@@ -26,8 +26,12 @@ export default function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { nome, cargo, email, nivel, status, avatar_url } = usePerfil();
-
   const isAdmin = nivel === "Admin";
+
+  // 💡 LÓGICA WHITE-LABEL: Se o cliente configurar um nome, usamos. Senão, é Baply!
+  // No futuro, isso virá do seu Contexto Global de Configurações
+  const nomeAcademyPersonalizado = ""; // Ex: "Sweet Academy"
+  const nomeAcademy = nomeAcademyPersonalizado || "Baply Academy";
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -93,10 +97,10 @@ export default function Header() {
               <Target size={18} className="text-stone-400" /> Minhas Metas
             </Link>
 
-            {/* 👇 O NOVO PORTAL DA UNIVERSIDADE BAPLY */}
+            {/* 👇 O NOME DINÂMICO APLICADO AQUI */}
             <Link href="/dashboard/academy" className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-700 dark:hover:text-indigo-400 transition-colors group/academy">
               <GraduationCap size={18} className="text-indigo-400 group-hover/academy:text-indigo-500 transition-colors" /> 
-              Sweet Academy
+              {nomeAcademy}
               <span className="ml-auto text-[10px] font-black bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-pulse">
                 XP
               </span>

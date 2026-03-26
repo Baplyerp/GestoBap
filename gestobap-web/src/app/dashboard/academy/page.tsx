@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 // ============================================================================
-// 🚀 MOCKS DA ACADEMY (Até o Supabase ser populado)
+// 🚀 MOCKS DA ACADEMY
 // ============================================================================
 const TRILHAS_MOCK = [
   {
@@ -37,17 +37,19 @@ const PROGRESSO_MOCK = [
 
 export default function BaplyAcademyPage() {
   const supabase = createClient();
-  const [abaAtiva, setAbaAtiva] = useState("trilhas"); // "trilhas" | "meu_progresso"
+  const [abaAtiva, setAbaAtiva] = useState("trilhas"); 
   
-  // Estados para o Upload do Certificado
+  // 💡 LÓGICA WHITE-LABEL: Se o cliente configurar um nome, usamos. Senão, é Baply!
+  const nomeAcademyPersonalizado = ""; // Ex: "Sweet Academy"
+  const nomeAcademy = nomeAcademyPersonalizado || "Baply Academy";
+  
   const [modalUpload, setModalUpload] = useState(false);
   const [cursoAlvo, setCursoAlvo] = useState<any>(null);
   const [ficheiroCertificado, setFicheiroCertificado] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  // 🧮 CÁLCULOS DO MOTOR DE GAMIFICAÇÃO
   const xpTotal = PROGRESSO_MOCK.reduce((acc, curr) => acc + curr.xp_ganho, 0);
-  const nivelAtual = Math.floor(xpTotal / 500) + 1; // A cada 500 XP sobe de nível
+  const nivelAtual = Math.floor(xpTotal / 500) + 1; 
   const xpProximoNivel = nivelAtual * 500;
   const pctProgresso = Math.min((xpTotal / xpProximoNivel) * 100, 100);
 
@@ -64,23 +66,9 @@ export default function BaplyAcademyPage() {
     setEnviando(true);
 
     try {
-      // 💡 A MÁGICA DO SUPABASE STORAGE ACONTECE AQUI
-      // Constroi um nome seguro para o ficheiro
       const fileExt = ficheiroCertificado.name.split('.').pop();
       const fileName = `certificado_${cursoAlvo.id}_${Date.now()}.${fileExt}`;
       const filePath = `usuario_teste/${fileName}`;
-
-      /* // CÓDIGO REAL DESCOMENTADO QUANDO O BANCO ESTIVER PRONTO:
-      const { error: uploadError } = await supabase.storage
-        .from('certificados')
-        .upload(filePath, ficheiroCertificado);
-
-      if (uploadError) throw uploadError;
-      
-      const { data: publicUrl } = supabase.storage.from('certificados').getPublicUrl(filePath);
-      
-      // Depois faz o INSERT na tabela progresso_academico com a publicUrl.publicUrl
-      */
 
       setTimeout(() => {
         toast.success("Certificado enviado para validação! 🎉", {
@@ -99,7 +87,6 @@ export default function BaplyAcademyPage() {
   return (
     <div className="animate-in fade-in duration-500 mb-20 relative">
       
-      {/* 🚨 CABEÇALHO & GAMIFICAÇÃO */}
       <div className="mb-10 bg-stone-900 dark:bg-stone-950 rounded-[2rem] p-8 md:p-10 border border-stone-800 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full blur-[120px] opacity-20 pointer-events-none"></div>
         
@@ -107,13 +94,13 @@ export default function BaplyAcademyPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-indigo-400 text-xs font-bold mb-4 backdrop-blur-sm">
             <GraduationCap size={14} /> Universidade Corporativa
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tight">Sweet Academy</h1>
+          {/* 👇 NOME DINÂMICO APLICADO AO TÍTULO GIGANTE 👇 */}
+          <h1 className="text-4xl font-black text-white tracking-tight">{nomeAcademy}</h1>
           <p className="text-stone-400 font-medium mt-2 max-w-md">
             O conhecimento é o único ativo que escala infinitamente. Complete as trilhas e suba o nível da sua carreira.
           </p>
         </div>
 
-        {/* O MOTOR DE DOPAMINA (BARRA DE NÍVEL) */}
         <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-6 w-full md:w-96 backdrop-blur-md">
           <div className="flex justify-between items-end mb-3">
             <div>
@@ -132,7 +119,6 @@ export default function BaplyAcademyPage() {
         </div>
       </div>
 
-      {/* 🧭 NAVEGAÇÃO DE ABAS */}
       <div className="flex items-center gap-x-8 border-b border-stone-200 dark:border-stone-700 mb-8 overflow-x-auto whitespace-nowrap scrollbar-hide">
         <button onClick={() => setAbaAtiva("trilhas")} className={`pb-4 text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-all border-b-2 ${abaAtiva === "trilhas" ? "border-indigo-500 text-stone-900 dark:text-white" : "border-transparent text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"}`}>
           <BookOpen size={18} className={`transition-all ${abaAtiva === "trilhas" ? "text-indigo-500 scale-110" : ""}`} /> Explorar Trilhas
@@ -142,9 +128,6 @@ export default function BaplyAcademyPage() {
         </button>
       </div>
 
-      {/* ====================================================================== */}
-      {/* 📚 ABA 1: A VITRINE DE CURSOS E TRILHAS */}
-      {/* ====================================================================== */}
       {abaAtiva === "trilhas" && (
         <div className="space-y-10 animate-in fade-in duration-300">
           {TRILHAS_MOCK.map((trilha) => (
@@ -187,9 +170,6 @@ export default function BaplyAcademyPage() {
         </div>
       )}
 
-      {/* ====================================================================== */}
-      {/* 🏆 ABA 2: O MEU PROGRESSO E PROVA DE TRABALHO */}
-      {/* ====================================================================== */}
       {abaAtiva === "meu_progresso" && (
         <div className="bg-white dark:bg-stone-800 rounded-[2rem] border border-stone-200 dark:border-stone-700 p-8 shadow-sm animate-in fade-in duration-300 min-h-[400px]">
           <h2 className="text-xl font-black text-stone-900 dark:text-white flex items-center gap-2 mb-6">
@@ -249,9 +229,6 @@ export default function BaplyAcademyPage() {
         </div>
       )}
 
-      {/* ====================================================================== */}
-      {/* 🚀 MODAL: UPLOAD PARA SUPABASE STORAGE */}
-      {/* ====================================================================== */}
       {modalUpload && cursoAlvo && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-md" onClick={() => !enviando && setModalUpload(false)}></div>
