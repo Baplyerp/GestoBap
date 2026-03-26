@@ -9,7 +9,7 @@ import {
   PlayCircle, CheckCircle2, UploadCloud, FileText, 
   ExternalLink, Award, X, Loader2, Sparkles, Target, 
   TrendingUp, BrainCircuit, ShieldAlert, Link as LinkIcon, 
-  Image as ImageIcon, Check, Filter
+  Image as ImageIcon, Check, Filter, Search
 } from "lucide-react";
 
 // ============================================================================
