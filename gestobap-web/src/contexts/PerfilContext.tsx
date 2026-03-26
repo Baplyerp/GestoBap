@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 
 // Define a estrutura do nosso "Coração"
@@ -11,15 +11,19 @@ type PerfilContextData = {
   status: string;
   nivel: string;
   email: string;
-  carregando: boolean; // 👈 Nossa sentinela de carregamento
+  carregando: boolean; 
   atualizarPerfil: () => void;
 };
 
 const PerfilContext = createContext<PerfilContextData>({} as PerfilContextData);
 
 export function PerfilProvider({ children }: { children: ReactNode }) {
-  const supabase = createClient();
+  // 🛡️ TRAVA 1: Memoizamos o cliente para garantir que ele não seja recriado a cada renderização
+  const supabase = useMemo(() => createClient(), []);
+  
   const [carregando, setCarregando] = useState(true);
+  const [inicializado, setInicializado] = useState(false); // 🔒 A NOSSA NOVA SENTINELA
+
   const [perfil, setPerfil] = useState({
     nome: "",
     avatar_url: "",
@@ -31,9 +35,8 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
 
   // Função que vai no cofre buscar os dados
   const carregarPerfil = async () => {
-    // 🛡️ O SEGREDO DA FLUIDEZ: Sincronização em Background
-    // Só mostramos a tela de loading global se não tivermos nem o email do usuário ainda
-    if (!perfil.email) {
+    // 🛡️ TRAVA 2: Se o sistema já iniciou uma vez, NUNCA MAIS mostramos a tela de loading global
+    if (!inicializado) {
       setCarregando(true);
     }
     
@@ -51,14 +54,14 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
             email: user.email || "",
           });
         } else {
-          // Fallback caso o usuário logue, mas a tabela de perfil ainda não tenha sincronizado
           setPerfil((prev) => ({ ...prev, email: user.email || "" }));
         }
       }
     } catch (error) {
       console.error("Erro ao carregar perfil:", error);
     } finally {
-      setCarregando(false); // Libera a tela
+      setCarregando(false);
+      setInicializado(true); // 🔒 Tranca a porta! O loading global nunca mais interrompe o utilizador.
     }
   };
 
@@ -66,7 +69,7 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
     // 1. Busca na primeira vez que o sistema abre
     carregarPerfil();
 
-    // 🚨 2. O GRANDE SEGREDO: O Ouvinte do Supabase!
+    // 2. O Ouvinte do Supabase!
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN") {
         carregarPerfil();
@@ -77,15 +80,16 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // 📻 3. O RÁDIO: Escuta o sinal "perfilAtualizado" que disparamos na tela de Perfil
+    // 3. O RÁDIO: Escuta o sinal "perfilAtualizado" que disparamos na tela de Perfil
     window.addEventListener("perfilAtualizado", carregarPerfil);
     
     return () => {
       window.removeEventListener("perfilAtualizado", carregarPerfil);
       authListener.subscription.unsubscribe();
     };
+    // 🛡️ TRAVA 3: Dependência vazia para o useEffect não ficar "piscando" o contexto
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase]);
+  }, []); 
 
   return (
     <PerfilContext.Provider value={{ ...perfil, carregando, atualizarPerfil: carregarPerfil }}>
