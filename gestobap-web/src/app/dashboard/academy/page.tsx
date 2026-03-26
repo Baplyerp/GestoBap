@@ -67,6 +67,39 @@ export default function BaplyAcademyPage() {
     }
   }, []);
 
+  // ==========================================================================
+  // 🧠 MEMÓRIA MUSCULAR (AUTO-SAVE) - Impede a Amnésia do React
+  // ==========================================================================
+  const [isInicializado, setIsInicializado] = useState(false);
+
+  // 1. CARREGA OS RASCUNHOS AO ABRIR A TELA
+  useEffect(() => {
+    const nomeLojaSalvo = localStorage.getItem("@baply_nome_loja");
+    if (nomeLojaSalvo) {
+      const primeiroNome = nomeLojaSalvo.split(' ')[0];
+      setNomeAcademy(`${primeiroNome} Academy`);
+    }
+
+    const abaSalva = localStorage.getItem("@baply_academy_aba");
+    const urlSalva = localStorage.getItem("@baply_academy_url");
+    const cursoSalvo = localStorage.getItem("@baply_academy_curso");
+
+    if (abaSalva) setAbaAtiva(abaSalva);
+    if (urlSalva) setUrlCurso(urlSalva);
+    if (cursoSalvo) setNovoCurso(JSON.parse(cursoSalvo));
+
+    setIsInicializado(true);
+  }, []);
+
+  // 2. SALVA TUDO EM TEMPO REAL CONFORME VOCÊ DIGITA OU CLICA
+  useEffect(() => {
+    if (isInicializado) {
+      localStorage.setItem("@baply_academy_aba", abaAtiva);
+      localStorage.setItem("@baply_academy_url", urlCurso);
+      localStorage.setItem("@baply_academy_curso", JSON.stringify(novoCurso));
+    }
+  }, [abaAtiva, urlCurso, novoCurso, isInicializado]);
+
   const abrirModalCertificado = (curso: any) => {
     setCursoAlvo(curso);
     setFicheiroCertificado(null);
