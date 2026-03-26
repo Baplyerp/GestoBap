@@ -26,20 +26,28 @@ export default function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { nome, cargo, email, nivel, status, avatar_url } = usePerfil();
-  const isAdmin = nivel === "Admin";
+  const isAdmin = nivel === "Admin" || nivel === "CEO";
 
-  // 💡 LÓGICA WHITE-LABEL: Se o cliente configurar um nome, usamos. Senão, é Baply!
-  // No futuro, isso virá do seu Contexto Global de Configurações
-  const nomeAcademyPersonalizado = ""; // Ex: "Sweet Academy"
-  const nomeAcademy = nomeAcademyPersonalizado || "Baply Academy";
+  // 💡 LÓGICA WHITE-LABEL DINÂMICA
+  const [nomeAcademy, setNomeAcademy] = useState("Baply Academy");
 
   useEffect(() => {
+    // 1. Fecha o menu ao clicar fora
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
+
+    // 2. Busca o nome da loja configurado para personalizar a Academy
+    const nomeLojaSalvo = localStorage.getItem("@baply_nome_loja");
+    if (nomeLojaSalvo) {
+      // Se for "Sweet Home", ele pega só o "Sweet"
+      const primeiroNome = nomeLojaSalvo.split(' ')[0];
+      setNomeAcademy(`${primeiroNome} Academy`);
+    }
+
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 

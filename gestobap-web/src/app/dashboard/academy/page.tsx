@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import { 
@@ -39,9 +39,8 @@ export default function BaplyAcademyPage() {
   const supabase = createClient();
   const [abaAtiva, setAbaAtiva] = useState("trilhas"); 
   
-  // 💡 LÓGICA WHITE-LABEL: Se o cliente configurar um nome, usamos. Senão, é Baply!
-  const nomeAcademyPersonalizado = ""; // Ex: "Sweet Academy"
-  const nomeAcademy = nomeAcademyPersonalizado || "Baply Academy";
+  // 💡 LÓGICA WHITE-LABEL DINÂMICA
+  const [nomeAcademy, setNomeAcademy] = useState("Baply Academy");
   
   const [modalUpload, setModalUpload] = useState(false);
   const [cursoAlvo, setCursoAlvo] = useState<any>(null);
@@ -52,6 +51,15 @@ export default function BaplyAcademyPage() {
   const nivelAtual = Math.floor(xpTotal / 500) + 1; 
   const xpProximoNivel = nivelAtual * 500;
   const pctProgresso = Math.min((xpTotal / xpProximoNivel) * 100, 100);
+
+  // 💡 ACORDA E VERIFICA O NOME DA LOJA
+  useEffect(() => {
+    const nomeLojaSalvo = localStorage.getItem("@baply_nome_loja");
+    if (nomeLojaSalvo) {
+      const primeiroNome = nomeLojaSalvo.split(' ')[0];
+      setNomeAcademy(`${primeiroNome} Academy`);
+    }
+  }, []);
 
   const abrirModalCertificado = (curso: any) => {
     setCursoAlvo(curso);
@@ -94,7 +102,7 @@ export default function BaplyAcademyPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-indigo-400 text-xs font-bold mb-4 backdrop-blur-sm">
             <GraduationCap size={14} /> Universidade Corporativa
           </div>
-          {/* 👇 NOME DINÂMICO APLICADO AO TÍTULO GIGANTE 👇 */}
+          {/* 👇 O LETREIRO GIGANTE AGORA É DINÂMICO 👇 */}
           <h1 className="text-4xl font-black text-white tracking-tight">{nomeAcademy}</h1>
           <p className="text-stone-400 font-medium mt-2 max-w-md">
             O conhecimento é o único ativo que escala infinitamente. Complete as trilhas e suba o nível da sua carreira.
