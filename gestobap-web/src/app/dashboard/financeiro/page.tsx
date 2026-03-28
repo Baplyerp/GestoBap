@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import { 
@@ -10,11 +10,12 @@ import {
   CalendarDays, SmartphoneNfc, ArrowUpRight, ArrowDownRight,
   MessageCircleHeart, Loader2, Landmark, Sparkles,
   Bot, History, Wallet, Target, UserPlus, MapPin, Edit2, Trash2, Save,
-  Building2, SearchCode, Handshake, ScrollText, Factory, Plus
+  Building2, SearchCode, Handshake, ScrollText, Factory, Plus,
+  LayoutGrid, List
 } from "lucide-react";
 
 // ============================================================================
-// 🚀 MOCKS DE ALTA FIDELIDADE
+// 🚀 MOCKS DE ALTA FIDELIDADE (Agora com CPF para o Omni-Search)
 // ============================================================================
 const DESPESAS_MOCK = [
   { id: "DESP-001", descricao: "Lote Toalhas (NF 1234)", valor: 2450.00, vencimento: "2026-03-25", status: "Pendente", categoria: "Estoque / Mercadorias", fornecedor: "Buddemeyer S.A." },
@@ -24,9 +25,10 @@ const DESPESAS_MOCK = [
 ];
 
 const CLIENTES_MOCK = [
-  { id: "CLI-101", cliente: "Ana Costa", telefone: "5511999999999", endereco: "Rua das Flores, 123 - Centro", valor_pendente: 145.00, atraso: 12, status_divida: "Atrasado", risco: "Atenção", ltv: 1250.00, cashback: 15.00, ultima_interacao: "Lembrete via IA (Há 2 dias)" },
-  { id: "CLI-102", cliente: "Maria Souza", telefone: "5511888888888", endereco: "Av. Paulista, 1000 - Bela Vista", valor_pendente: 89.90, atraso: 0, status_divida: "No Prazo", risco: "Excelente", ltv: 3400.00, cashback: 45.50, ultima_interacao: "Agradecimento (Há 1 mês)" },
-  { id: "CLI-103", cliente: "Juliana Silva", telefone: "5511777777777", endereco: "Rua Augusta, 500 - Consolação", valor_pendente: 450.00, atraso: 45, status_divida: "Crítico", risco: "Crítico", ltv: 450.00, cashback: 0.00, ultima_interacao: "Promessa Quebrada (Há 15 dias)" },
+  { id: "CLI-101", cliente: "Ana Costa", cpf: "111.222.333-44", telefone: "5511999999999", endereco: "Rua das Flores, 123 - Centro", valor_pendente: 145.00, atraso: 12, status_divida: "Atrasado", risco: "Atenção", ltv: 1250.00, cashback: 15.00, ultima_interacao: "Lembrete via IA (Há 2 dias)" },
+  { id: "CLI-102", cliente: "Maria Souza", cpf: "555.666.777-88", telefone: "5511888888888", endereco: "Av. Paulista, 1000 - Bela Vista", valor_pendente: 89.90, atraso: 0, status_divida: "No Prazo", risco: "Excelente", ltv: 3400.00, cashback: 45.50, ultima_interacao: "Agradecimento (Há 1 mês)" },
+  { id: "CLI-103", cliente: "Juliana Silva", cpf: "999.000.111-22", telefone: "5511777777777", endereco: "Rua Augusta, 500 - Consolação", valor_pendente: 450.00, atraso: 45, status_divida: "Crítico", risco: "Crítico", ltv: 450.00, cashback: 0.00, ultima_interacao: "Promessa Quebrada (Há 15 dias)" },
+  { id: "CLI-104", cliente: "Carlos Mendes", cpf: "333.444.555-66", telefone: "5511666666666", endereco: "Rua B, 45 - Jardins", valor_pendente: 0.00, atraso: 0, status_divida: "No Prazo", risco: "Excelente", ltv: 5200.00, cashback: 100.00, ultima_interacao: "Venda Realizada (Há 5 dias)" }
 ];
 
 const FORNECEDORES_MOCK = [
@@ -50,6 +52,13 @@ export default function FinanceiroCRMPage() {
   
   const [loading, setLoading] = useState(true);
   const [isInicializado, setIsInicializado] = useState(false);
+
+  // ==========================================
+  // ARQUITETURA 5.0 (OMNI-SEARCH & SMART GRID)
+  // ==========================================
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [filtroChips, setFiltroChips] = useState("Todos"); // "Todos" | "Atrasados" | "Cashback" | "VIP"
+  const [visaoModo, setVisaoModo] = useState("tabela"); // "tabela" | "grid"
   
   // ==========================================
   // ESTADOS CRM (CLIENTES) E I.A. 4.0
@@ -67,7 +76,6 @@ export default function FinanceiroCRMPage() {
   // ==========================================
   // ESTADOS DE CADASTRO E B2B
   // ==========================================
-  const [buscaCliente, setBuscaCliente] = useState("");
   const [modalNovoCliente, setModalNovoCliente] = useState(false);
   const [formCliente, setFormCliente] = useState({ nome: "", telefone: "", cpf: "", endereco: "" });
   const [salvandoCliente, setSalvandoCliente] = useState(false);
@@ -98,6 +106,40 @@ export default function FinanceiroCRMPage() {
   const lucroLiquidoAtual = receitaMes - despesasPagas;
 
   // ==========================================
+  // O MOTOR BAPLY OMNI-SEARCH (Lente Global)
+  // ==========================================
+  const clientesProcessados = useMemo(() => {
+    let filtrados = [...CLIENTES_MOCK];
+    
+    // 1. Filtro Magnético (Smart Chips)
+    if (filtroChips === "Atrasados") filtrados = filtrados.filter(c => c.atraso > 0);
+    else if (filtroChips === "Cashback") filtrados = filtrados.filter(c => c.cashback > 0);
+    else if (filtroChips === "VIP") filtrados = filtrados.sort((a, b) => b.ltv - a.ltv).slice(0, 10);
+
+    // 2. Filtro Omni-Search (Ignora traços, pontos e foca nos 4 campos)
+    if (buscaCliente) {
+      const termoBusca = buscaCliente.toLowerCase().replace(/[^a-z0-9]/gi, ''); 
+      filtrados = filtrados.filter(c => {
+         const idLimpo = c.id.toLowerCase().replace(/[^a-z0-9]/gi, '');
+         const nomeLimpo = c.cliente.toLowerCase();
+         const telLimpo = c.telefone.replace(/[^0-9]/g, '');
+         const cpfLimpo = c.cpf.replace(/[^0-9]/g, '');
+         
+         return nomeLimpo.includes(buscaCliente.toLowerCase()) || 
+                idLimpo.includes(termoBusca) || 
+                telLimpo.includes(termoBusca) || 
+                cpfLimpo.includes(termoBusca);
+      });
+    }
+    
+    // Simulação de limite de exibição (Para escalabilidade futura)
+    return filtrados.slice(0, 50); 
+  }, [buscaCliente, filtroChips]);
+
+  const fornecedoresFiltrados = FORNECEDORES_MOCK.filter(f => f.nome.toLowerCase().includes(buscaFornecedor.toLowerCase()) || f.cnpj.includes(buscaFornecedor));
+
+
+  // ==========================================
   // MEMÓRIA MUSCULAR
   // ==========================================
   useEffect(() => {
@@ -105,10 +147,12 @@ export default function FinanceiroCRMPage() {
     const draftTom = localStorage.getItem("@baply_crm_tom");
     const draftClienteId = localStorage.getItem("@baply_crm_cliente_id");
     const draftFormCliente = localStorage.getItem("@baply_crm_form_novo_cli");
+    const draftVisao = localStorage.getItem("@baply_crm_visao"); // Memória do Toggle Grid/Tabela
 
     if (draftMsg) setMensagemGerada(draftMsg);
     if (draftTom) setTomCobranca(Number(draftTom));
     if (draftFormCliente) setFormCliente(JSON.parse(draftFormCliente));
+    if (draftVisao) setVisaoModo(draftVisao);
     
     if (draftClienteId) {
       const cli = CLIENTES_MOCK.find(c => c.id === draftClienteId);
@@ -132,8 +176,9 @@ export default function FinanceiroCRMPage() {
       if (modalNovoCliente) {
         localStorage.setItem("@baply_crm_form_novo_cli", JSON.stringify(formCliente));
       }
+      localStorage.setItem("@baply_crm_visao", visaoModo);
     }
-  }, [mensagemGerada, tomCobranca, clienteAlvo, modalCobranca, formCliente, modalNovoCliente, isInicializado]);
+  }, [mensagemGerada, tomCobranca, clienteAlvo, modalCobranca, formCliente, modalNovoCliente, visaoModo, isInicializado]);
 
   // ==========================================================================
   // FUNÇÕES CLIENTES E CRM 4.0
@@ -199,7 +244,7 @@ export default function FinanceiroCRMPage() {
   };
 
   // ==========================================================================
-  // FUNÇÕES B2B / FORNECEDORES
+  // FUNÇÕES B2B / FORNECEDORES E DESPESAS (MANTIDAS INTACTAS)
   // ==========================================================================
   const buscarCNPJ = async () => {
     const cnpjLimpo = formFornecedor.cnpj.replace(/\D/g, '');
@@ -290,8 +335,6 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
     }, 2500);
   };
 
-  const clientesFiltrados = CLIENTES_MOCK.filter(c => c.cliente.toLowerCase().includes(buscaCliente.toLowerCase()) || c.telefone.includes(buscaCliente));
-  const fornecedoresFiltrados = FORNECEDORES_MOCK.filter(f => f.nome.toLowerCase().includes(buscaFornecedor.toLowerCase()) || f.cnpj.includes(buscaFornecedor));
 
   if (loading) return null;
 
@@ -378,7 +421,7 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
       </div>
 
       {/* ====================================================================== */}
-      {/* 👥 ABA 1: CARTEIRA DE CLIENTES E DIRETÓRIO */}
+      {/* 👥 ABA 1: CARTEIRA DE CLIENTES E DIRETÓRIO (COM OMNI-SEARCH & GRID) */}
       {/* ====================================================================== */}
       {abaAtiva === "clientes" && (
         <div className="bg-white dark:bg-stone-800 rounded-[2rem] shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden transition-colors animate-in fade-in duration-300">
@@ -388,210 +431,373 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
               <h3 className="font-black text-stone-900 dark:text-white flex items-center gap-2">
                 <Users size={18} className="text-indigo-500" /> Carteira de Clientes
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">A base central da loja. Estes dados integram com o PDV e o CRM de cobrança.</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">Busque por Nome, ID, WhatsApp ou CPF.</p>
             </div>
             
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              {/* OMNI-SEARCH INPUT */}
+              <div className="relative w-full md:w-80">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
                 <input 
                   type="text" 
                   value={buscaCliente}
                   onChange={(e) => setBuscaCliente(e.target.value)}
-                  placeholder="Buscar por nome ou Zap..." 
+                  placeholder="Pesquisa Global..." 
                   className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 transition-all text-stone-900 dark:text-white shadow-sm" 
                 />
               </div>
               
-              <button 
-                onClick={() => setModalNovoCliente(true)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-black bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md active:scale-95 shrink-0"
-              >
-                <UserPlus size={18} /> Novo Cadastro
-              </button>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between">
+                {/* TOGGLE DE VISÃO (TABELA / GRID) */}
+                <div className="flex bg-stone-100 dark:bg-stone-900 p-1 rounded-xl border border-stone-200 dark:border-stone-700">
+                   <button onClick={() => setVisaoModo("tabela")} className={`p-1.5 rounded-lg transition-all ${visaoModo === "tabela" ? "bg-white dark:bg-stone-800 text-indigo-500 shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>
+                     <List size={16}/>
+                   </button>
+                   <button onClick={() => setVisaoModo("grid")} className={`p-1.5 rounded-lg transition-all ${visaoModo === "grid" ? "bg-white dark:bg-stone-800 text-indigo-500 shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>
+                     <LayoutGrid size={16}/>
+                   </button>
+                </div>
+                
+                <button 
+                  onClick={() => setModalNovoCliente(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-black bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md active:scale-95 shrink-0"
+                >
+                  <UserPlus size={18} /> Cadastrar
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto min-h-[400px]">
-            <table className="w-full text-left border-collapse min-w-[900px]">
-              <thead>
-                <tr className="bg-stone-50 dark:bg-stone-900/50 border-b border-stone-100 dark:border-stone-700 text-[10px] uppercase tracking-widest text-stone-500 dark:text-stone-400 font-bold">
-                  <th className="p-5">Nome & Contato</th>
-                  <th className="p-5">Endereço Principal</th>
-                  <th className="p-5 text-right">Estatísticas de Compra</th>
-                  <th className="p-5 text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-700/50">
-                {clientesFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-12 text-center text-stone-400">
-                      <Users size={48} className="mx-auto mb-3 opacity-20" />
-                      <p className="font-bold">Nenhum cliente encontrado.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  clientesFiltrados.map((cli) => (
-                    <tr key={cli.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors">
-                      <td className="p-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-100 dark:border-indigo-500/20">
-                            {cli.cliente.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
-                              {cli.cliente} <span className="text-[9px] bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300 px-1.5 py-0.5 rounded font-mono">{cli.id}</span>
-                            </p>
-                            <p className="text-xs font-medium text-stone-500 dark:text-stone-400 font-mono mt-0.5 flex items-center gap-1">
-                              <MessageCircle size={10} className="text-emerald-500"/> {cli.telefone}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      
-                      <td className="p-5">
-                        <p className="text-xs font-medium text-stone-600 dark:text-stone-300 max-w-xs line-clamp-2">
-                          {cli.endereco || <span className="italic opacity-50">Endereço não cadastrado</span>}
-                        </p>
-                      </td>
-                      
-                      <td className="p-5 text-right">
-                        <div className="flex flex-col items-end gap-1">
-                          <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">LTV: R$ {cli.ltv.toFixed(2).replace('.', ',')}</p>
-                          <span className="inline-flex items-center gap-1 bg-[#A67B5B]/10 text-[#A67B5B] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-0.5">
-                            <Wallet size={10} /> + R$ {cli.cashback.toFixed(2).replace('.', ',')} Cashback
-                          </span>
-                        </div>
-                      </td>
-                      
-                      <td className="p-5 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button className="p-2 bg-stone-100 dark:bg-stone-900 text-stone-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 rounded-lg transition-colors" title="Editar">
-                            <Edit2 size={16} />
-                          </button>
-                          <button className="p-2 bg-stone-100 dark:bg-stone-900 text-stone-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-lg transition-colors" title="Excluir">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
+          {/* FILTROS MAGNÉTICOS (SMART CHIPS) */}
+          <div className="px-6 py-4 bg-stone-50 dark:bg-stone-900/30 border-b border-stone-100 dark:border-stone-700 flex gap-2 overflow-x-auto scrollbar-hide">
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center mr-2">Filtros Rápidos:</span>
+            {["Todos", "Atrasados", "Cashback", "VIP"].map(chip => (
+              <button 
+                key={chip} 
+                onClick={() => setFiltroChips(chip)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap ${filtroChips === chip ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20" : "bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-indigo-300"}`}
+              >
+                {chip === "Atrasados" && "🚨 "}
+                {chip === "Cashback" && "🎁 "}
+                {chip === "VIP" && "💎 "}
+                {chip}
+              </button>
+            ))}
+          </div>
+
+          {/* RENDERIZAÇÃO DA VISÃO (TABELA OU GRID) */}
+          <div className="min-h-[400px] bg-stone-50/30 dark:bg-stone-900/10">
+            {clientesProcessados.length === 0 ? (
+              <div className="py-16 text-center text-stone-400">
+                <Users size={48} className="mx-auto mb-3 opacity-20" />
+                <p className="font-bold">Nenhum cliente encontrado no Omni-Search.</p>
+              </div>
+            ) : visaoModo === "tabela" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[900px]">
+                  <thead>
+                    <tr className="bg-stone-50 dark:bg-stone-900/50 border-b border-stone-100 dark:border-stone-700 text-[10px] uppercase tracking-widest text-stone-500 dark:text-stone-400 font-bold">
+                      <th className="p-5">Nome & Contato</th>
+                      <th className="p-5">Endereço Principal</th>
+                      <th className="p-5 text-right">Estatísticas de Compra</th>
+                      <th className="p-5 text-center">Ações</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 dark:divide-stone-700/50">
+                    {clientesProcessados.map((cli) => (
+                      <tr key={cli.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors bg-white dark:bg-stone-800">
+                        <td className="p-5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-100 dark:border-indigo-500/20">
+                              {cli.cliente.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                                {cli.cliente} <span className="text-[9px] bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300 px-1.5 py-0.5 rounded font-mono">{cli.id}</span>
+                              </p>
+                              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 font-mono mt-0.5 flex items-center gap-2">
+                                <span className="flex items-center gap-1"><MessageCircle size={10} className="text-emerald-500"/> {cli.telefone}</span>
+                                <span className="opacity-50">|</span>
+                                <span>CPF: {cli.cpf}</span>
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <p className="text-xs font-medium text-stone-600 dark:text-stone-300 max-w-xs line-clamp-2">
+                            {cli.endereco || <span className="italic opacity-50">Endereço não cadastrado</span>}
+                          </p>
+                        </td>
+                        <td className="p-5 text-right">
+                          <div className="flex flex-col items-end gap-1">
+                            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">LTV: R$ {cli.ltv.toFixed(2).replace('.', ',')}</p>
+                            {cli.cashback > 0 && (
+                              <span className="inline-flex items-center gap-1 bg-[#A67B5B]/10 text-[#A67B5B] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-0.5">
+                                <Wallet size={10} /> + R$ {cli.cashback.toFixed(2).replace('.', ',')} Cashback
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-5 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button className="p-2 bg-stone-100 dark:bg-stone-900 text-stone-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 rounded-lg transition-colors" title="Editar">
+                              <Edit2 size={16} />
+                            </button>
+                            <button className="p-2 bg-stone-100 dark:bg-stone-900 text-stone-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-lg transition-colors" title="Excluir">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {clientesProcessados.map((cli) => (
+                  <div key={cli.id} className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-5 shadow-sm hover:shadow-lg transition-shadow group flex flex-col">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-black text-lg border border-indigo-100 dark:border-indigo-500/20">
+                          {cli.cliente.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="font-black text-stone-900 dark:text-white leading-tight">{cli.cliente}</h4>
+                          <span className="text-[10px] bg-stone-100 dark:bg-stone-900 text-stone-500 dark:text-stone-400 px-1.5 py-0.5 rounded font-mono">{cli.id}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <button className="p-1.5 text-stone-400 hover:text-indigo-500 transition-colors"><Edit2 size={14} /></button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 mb-4 flex-1">
+                      <p className="text-xs font-mono text-stone-600 dark:text-stone-300 flex items-center gap-2"><MessageCircle size={12} className="text-emerald-500"/> {cli.telefone}</p>
+                      <p className="text-xs font-mono text-stone-600 dark:text-stone-300 flex items-center gap-2"><SearchCode size={12} className="text-stone-400"/> {cli.cpf}</p>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 flex items-start gap-2"><MapPin size={12} className="shrink-0 mt-0.5"/> <span className="line-clamp-2">{cli.endereco}</span></p>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-stone-100 dark:border-stone-700 flex justify-between items-end">
+                      <div>
+                        <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">LTV Atual</p>
+                        <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">R$ {cli.ltv.toFixed(2).replace('.', ',')}</p>
+                      </div>
+                      {cli.cashback > 0 && (
+                        <span className="inline-flex items-center gap-1 bg-[#A67B5B]/10 text-[#A67B5B] px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">
+                          <Wallet size={12} /> R$ {cli.cashback.toFixed(2).replace('.', ',')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* ====================================================================== */}
-      {/* 🎯 ABA 2: CRM & LTV (A MÁQUINA DE DINHEIRO) */}
+      {/* 🎯 ABA 2: CRM & LTV (A MÁQUINA DE DINHEIRO) COM OMNI-SEARCH E GRID */}
       {/* ====================================================================== */}
       {abaAtiva === "crm" && (
         <div className="bg-white dark:bg-stone-800 rounded-[2rem] shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden transition-colors animate-in fade-in duration-300">
           
-          <div className="p-6 border-b border-stone-100 dark:border-stone-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-rose-50/30 dark:bg-rose-500/5">
+          <div className="p-6 border-b border-stone-100 dark:border-stone-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-rose-50/30 dark:bg-rose-500/5 shrink-0">
             <div>
               <h3 className="font-black text-stone-900 dark:text-white flex items-center gap-2">
                 <Target size={18} className="text-rose-500" /> Relacionamento e Inadimplência
               </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">Acompanhe o Life Time Value (LTV), Cashback e acione a Automação de WhatsApp.</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">Busque clientes em atraso e acione o Concierge de Cobrança.</p>
             </div>
             
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              <div className="relative w-full md:w-80">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
                 <input 
                   type="text" 
-                  placeholder="Buscar cliente..." 
+                  value={buscaCliente}
+                  onChange={(e) => setBuscaCliente(e.target.value)}
+                  placeholder="Pesquisa Global..." 
                   className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition-all text-stone-900 dark:text-white shadow-sm" 
                 />
               </div>
               
-              <button 
-                onClick={() => setAutomacaoLigada(!automacaoLigada)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${automacaoLigada ? "bg-rose-500 border-rose-500 text-white shadow-rose-500/30 animate-pulse" : "bg-stone-100 dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"}`}
-              >
-                <Bot size={16} /> {automacaoLigada ? "Automação ON" : "Ligar Robô"}
-              </button>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between">
+                {/* TOGGLE DE VISÃO (TABELA / GRID) */}
+                <div className="flex bg-stone-100 dark:bg-stone-900 p-1 rounded-xl border border-stone-200 dark:border-stone-700">
+                   <button onClick={() => setVisaoModo("tabela")} className={`p-1.5 rounded-lg transition-all ${visaoModo === "tabela" ? "bg-white dark:bg-stone-800 text-rose-500 shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>
+                     <List size={16}/>
+                   </button>
+                   <button onClick={() => setVisaoModo("grid")} className={`p-1.5 rounded-lg transition-all ${visaoModo === "grid" ? "bg-white dark:bg-stone-800 text-rose-500 shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>
+                     <LayoutGrid size={16}/>
+                   </button>
+                </div>
+
+                <button 
+                  onClick={() => setAutomacaoLigada(!automacaoLigada)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${automacaoLigada ? "bg-rose-500 border-rose-500 text-white shadow-rose-500/30 animate-pulse" : "bg-stone-100 dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"}`}
+                >
+                  <Bot size={16} /> {automacaoLigada ? "Automação ON" : "Ligar Robô"}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-stone-50 dark:bg-stone-900/50 border-b border-stone-100 dark:border-stone-700 text-[10px] uppercase tracking-widest text-stone-500 dark:text-stone-400 font-bold">
-                  <th className="p-5">Dossiê da Cliente</th>
-                  <th className="p-5 text-right">Saldo Devedor</th>
-                  <th className="p-5 text-center">Score / Atraso</th>
-                  <th className="p-5 text-right">LTV & Cashback</th>
-                  <th className="p-5 text-center">Status da Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 dark:divide-stone-700/50">
-                {CLIENTES_MOCK.map((rec) => (
-                  <tr key={rec.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors">
-                    <td className="p-5">
-                      <p className="font-bold text-stone-900 dark:text-white flex items-center gap-2">{rec.cliente}</p>
-                      <p className="text-xs font-medium text-stone-500 dark:text-stone-400 font-mono mt-0.5">{rec.telefone}</p>
-                    </td>
-                    
-                    <td className="p-5 text-right">
-                      <p className={`text-base font-black ${rec.atraso > 0 ? "text-rose-600 dark:text-rose-400" : "text-stone-900 dark:text-white"}`}>
-                        R$ {rec.valor_pendente.toFixed(2).replace('.', ',')}
-                      </p>
-                    </td>
-                    
-                    <td className="p-5 text-center">
-                      {rec.atraso > 0 ? (
-                        <div className="flex flex-col gap-1 items-center">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${rec.risco === "Crítico" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"}`}>
-                            Risco {rec.risco}
-                          </span>
-                          <span className="text-xs font-bold text-red-500">{rec.atraso} dias vencido</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1 items-center">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
-                            Risco {rec.risco}
-                          </span>
-                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-500">Em Dia</span>
-                        </div>
-                      )}
-                    </td>
+          {/* FILTROS MAGNÉTICOS (SMART CHIPS) */}
+          <div className="px-6 py-4 bg-stone-50 dark:bg-stone-900/30 border-b border-stone-100 dark:border-stone-700 flex gap-2 overflow-x-auto scrollbar-hide">
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center mr-2">Filtros Rápidos:</span>
+            {["Todos", "Atrasados", "Cashback", "VIP"].map(chip => (
+              <button 
+                key={chip} 
+                onClick={() => setFiltroChips(chip)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap ${filtroChips === chip ? "bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-600/20" : "bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-rose-300"}`}
+              >
+                {chip === "Atrasados" && "🚨 "}
+                {chip === "Cashback" && "🎁 "}
+                {chip === "VIP" && "💎 "}
+                {chip}
+              </button>
+            ))}
+          </div>
 
-                    <td className="p-5 text-right">
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Total Comprado (LTV)</span>
-                        <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">R$ {rec.ltv.toFixed(2).replace('.', ',')}</p>
-                        {rec.cashback > 0 && (
-                          <span className="inline-flex items-center gap-1 bg-[#A67B5B]/10 text-[#A67B5B] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-1">
-                            <Wallet size={10} /> + R$ {rec.cashback.toFixed(2).replace('.', ',')} Cashback
-                          </span>
-                        )}
-                      </div>
-                    </td>
+          <div className="min-h-[400px] bg-stone-50/30 dark:bg-stone-900/10">
+            {clientesProcessados.length === 0 ? (
+              <div className="py-16 text-center text-stone-400">
+                <Target size={48} className="mx-auto mb-3 opacity-20" />
+                <p className="font-bold">Nenhum cliente atende aos critérios atuais.</p>
+              </div>
+            ) : visaoModo === "tabela" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="bg-stone-50 dark:bg-stone-900/50 border-b border-stone-100 dark:border-stone-700 text-[10px] uppercase tracking-widest text-stone-500 dark:text-stone-400 font-bold">
+                      <th className="p-5">Dossiê da Cliente</th>
+                      <th className="p-5 text-right">Saldo Devedor</th>
+                      <th className="p-5 text-center">Score / Atraso</th>
+                      <th className="p-5 text-right">LTV & Cashback</th>
+                      <th className="p-5 text-center">Status da Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 dark:divide-stone-700/50">
+                    {clientesProcessados.map((rec) => (
+                      <tr key={rec.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors bg-white dark:bg-stone-800">
+                        <td className="p-5">
+                          <p className="font-bold text-stone-900 dark:text-white flex items-center gap-2">{rec.cliente} <span className="text-[9px] bg-stone-100 dark:bg-stone-900 text-stone-500 px-1.5 py-0.5 rounded font-mono">{rec.id}</span></p>
+                          <p className="text-xs font-medium text-stone-500 dark:text-stone-400 font-mono mt-0.5">{rec.telefone}</p>
+                        </td>
+                        
+                        <td className="p-5 text-right">
+                          <p className={`text-base font-black ${rec.atraso > 0 ? "text-rose-600 dark:text-rose-400" : "text-stone-900 dark:text-white"}`}>
+                            R$ {rec.valor_pendente.toFixed(2).replace('.', ',')}
+                          </p>
+                        </td>
+                        
+                        <td className="p-5 text-center">
+                          {rec.atraso > 0 ? (
+                            <div className="flex flex-col gap-1 items-center">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${rec.risco === "Crítico" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"}`}>
+                                Risco {rec.risco}
+                              </span>
+                              <span className="text-xs font-bold text-red-500">{rec.atraso} dias vencido</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1 items-center">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                                Risco {rec.risco}
+                              </span>
+                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-500">Em Dia</span>
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="p-5 text-right">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Total Comprado (LTV)</span>
+                            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">R$ {rec.ltv.toFixed(2).replace('.', ',')}</p>
+                            {rec.cashback > 0 && (
+                              <span className="inline-flex items-center gap-1 bg-[#A67B5B]/10 text-[#A67B5B] px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-1">
+                                <Wallet size={10} /> + R$ {rec.cashback.toFixed(2).replace('.', ',')}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        
+                        <td className="p-5 text-center">
+                          <p className="text-[10px] font-bold text-stone-500 mb-2 truncate max-w-[150px] mx-auto">{rec.ultima_interacao}</p>
+                          
+                          {automacaoLigada ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-bold w-full justify-center opacity-70 cursor-not-allowed">
+                              <Bot size={14} /> Fila do Robô
+                            </span>
+                          ) : (
+                            <button 
+                              onClick={() => abrirCobranca(rec)}
+                              className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-xl text-xs font-bold transition-all shadow-sm mx-auto group/btn w-full ${rec.atraso > 0 ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+                            >
+                              <MessageCircleHeart size={14} className="group-hover/btn:scale-110 transition-transform" /> 
+                              {rec.atraso > 0 ? "Cobrar / Negociar" : "Fidelizar"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              // VISÃO EM GRID (CARTÕES DE COBRANÇA CRM)
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {clientesProcessados.map((rec) => (
+                  <div key={`card-crm-${rec.id}`} className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-5 shadow-sm hover:shadow-lg transition-shadow flex flex-col relative overflow-hidden">
+                    {/* Tarja superior de status */}
+                    <div className={`absolute top-0 left-0 w-full h-1 ${rec.atraso > 0 ? (rec.risco === "Crítico" ? "bg-red-500" : "bg-amber-500") : "bg-emerald-500"}`}></div>
                     
-                    <td className="p-5 text-center">
-                      <p className="text-[10px] font-bold text-stone-500 mb-2 truncate max-w-[150px] mx-auto">{rec.ultima_interacao}</p>
-                      
-                      {automacaoLigada ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-bold w-full justify-center opacity-70 cursor-not-allowed">
-                          <Bot size={14} /> Fila do Robô
-                        </span>
-                      ) : (
-                        <button 
-                          onClick={() => abrirCobranca(rec)}
-                          className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-xl text-xs font-bold transition-all shadow-sm mx-auto group/btn w-full ${rec.atraso > 0 ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
-                        >
-                          <MessageCircleHeart size={14} className="group-hover/btn:scale-110 transition-transform" /> 
-                          {rec.atraso > 0 ? "Cobrar / Negociar" : "Fidelizar"}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+                    <div className="flex justify-between items-start mb-4 mt-2">
+                      <div>
+                        <h4 className="font-black text-lg text-stone-900 dark:text-white leading-tight flex items-center gap-2">
+                          {rec.cliente}
+                        </h4>
+                        <p className="text-xs font-mono text-stone-500">{rec.telefone}</p>
+                      </div>
+                      <span className="text-[10px] bg-stone-100 dark:bg-stone-900 text-stone-500 dark:text-stone-400 px-1.5 py-0.5 rounded font-mono">{rec.id}</span>
+                    </div>
+
+                    <div className="bg-stone-50 dark:bg-stone-900/50 rounded-xl p-4 mb-4 flex justify-between items-center border border-stone-100 dark:border-stone-800">
+                       <div>
+                         <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-1">Dívida / Saldo</p>
+                         <p className={`text-xl font-black ${rec.atraso > 0 ? "text-rose-600 dark:text-rose-400" : "text-stone-900 dark:text-white"}`}>
+                           R$ {rec.valor_pendente.toFixed(2).replace('.', ',')}
+                         </p>
+                       </div>
+                       <div className="text-right">
+                         {rec.atraso > 0 ? (
+                           <span className={`inline-flex items-center px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${rec.risco === "Crítico" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"}`}>
+                             {rec.atraso} Dias Atraso
+                           </span>
+                         ) : (
+                           <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                             Em Dia
+                           </span>
+                         )}
+                       </div>
+                    </div>
+
+                    <div className="mt-auto flex flex-col gap-3">
+                      <p className="text-[10px] font-bold text-stone-400 text-center truncate">{rec.ultima_interacao}</p>
+                      <button 
+                        onClick={() => abrirCobranca(rec)}
+                        disabled={automacaoLigada}
+                        className={`w-full py-3 rounded-xl text-xs font-black text-white flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 ${rec.atraso > 0 ? "bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/30"}`}
+                      >
+                        {automacaoLigada ? <><Bot size={16}/> Robô Ativado</> : <><MessageCircleHeart size={16}/> {rec.atraso > 0 ? "Abrir Negociação 360º" : "Fidelizar Cliente"}</>}
+                      </button>
+                    </div>
+
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -786,7 +992,7 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
                       <tr><td colSpan={4} className="p-12 text-center text-stone-400"><Factory size={48} className="mx-auto mb-3 opacity-20" /><p className="font-bold">Nenhum fornecedor homologado.</p></td></tr>
                     ) : (
                       fornecedoresFiltrados.map((forn) => (
-                        <tr key={forn.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors">
+                        <tr key={forn.id} className="group hover:bg-stone-50 dark:hover:bg-stone-700/20 transition-colors bg-white dark:bg-stone-800">
                           <td className="p-5">
                             <p className="font-bold text-stone-900 dark:text-white flex items-center gap-2">{forn.nome}</p>
                             <p className="text-xs font-medium text-stone-500 dark:text-stone-400 font-mono mt-0.5">CNPJ: {forn.cnpj}</p>
