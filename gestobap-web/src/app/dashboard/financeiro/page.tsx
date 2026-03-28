@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import { 
@@ -29,11 +29,10 @@ const CLIENTES_MOCK = [
   { id: "CLI-103", cliente: "Juliana Silva", telefone: "5511777777777", endereco: "Rua Augusta, 500 - Consolação", valor_pendente: 450.00, atraso: 45, status_divida: "Crítico", risco: "Crítico", ltv: 450.00, cashback: 0.00, ultima_interacao: "Promessa Quebrada (Há 15 dias)" },
 ];
 
-const FATURAS_MOCK = [
-  { id: "FAT-001", cliente_id: "CLI-101", mes: "Janeiro/26", valor: 50.00 },
-  { id: "FAT-002", cliente_id: "CLI-101", mes: "Fevereiro/26", valor: 95.00 },
-  { id: "FAT-003", cliente_id: "CLI-103", mes: "Dezembro/25", valor: 150.00 },
-  { id: "FAT-004", cliente_id: "CLI-103", mes: "Janeiro/26", valor: 300.00 },
+const FORNECEDORES_MOCK = [
+  { id: "FORN-001", nome: "Buddemeyer S.A.", cnpj: "00.000.000/0001-00", categoria: "Indústria Têxtil", telefone: "5547999999999", contato: "Sr. Roberto (Vendas)" },
+  { id: "FORN-002", nome: "Karsten", cnpj: "11.111.111/0001-11", categoria: "Cama, Mesa e Banho", telefone: "5547888888888", contato: "Ana (Logística)" },
+  { id: "FORN-003", nome: "Embalagens Express", cnpj: "22.222.222/0001-22", categoria: "Insumos", telefone: "5511988888888", contato: "Central" }
 ];
 
 const FATURAS_MOCK = [
@@ -52,27 +51,32 @@ export default function FinanceiroCRMPage() {
   const [loading, setLoading] = useState(true);
   const [isInicializado, setIsInicializado] = useState(false);
   
-  // ESTADOS CRM (CLIENTES)
+  // ==========================================
+  // ESTADOS CRM (CLIENTES) E I.A. 4.0
+  // ==========================================
   const [modalCobranca, setModalCobranca] = useState(false);
   const [clienteAlvo, setClienteAlvo] = useState<any>(null);
-  const [estrategiaIA, setEstrategiaIA] = useState("amigavel");
+  
   const [valorPagamento, setValorPagamento] = useState<number | "">("");
-  const [tomCobranca, setTomCobranca] = useState<number>(3); // Slider de 1 a 5
+  const [tomCobranca, setTomCobranca] = useState<number>(3); 
+  
   const [gerandoMensagem, setGerandoMensagem] = useState(false);
   const [mensagemGerada, setMensagemGerada] = useState("");
   const [automacaoLigada, setAutomacaoLigada] = useState(false);
 
-  // ESTADOS CADASTRO DE CLIENTES
+  // ==========================================
+  // ESTADOS DE CADASTRO E B2B
+  // ==========================================
   const [buscaCliente, setBuscaCliente] = useState("");
   const [modalNovoCliente, setModalNovoCliente] = useState(false);
   const [formCliente, setFormCliente] = useState({ nome: "", telefone: "", cpf: "", endereco: "" });
   const [salvandoCliente, setSalvandoCliente] = useState(false);
 
-  // ESTADOS B2B (FORNECEDORES E DESPESAS)
   const [buscaFornecedor, setBuscaFornecedor] = useState("");
   const [modalNovoFornecedor, setModalNovoFornecedor] = useState(false);
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [formFornecedor, setFormFornecedor] = useState({ nome: "", cnpj: "", telefone: "", contato: "", categoria: "", endereco: "", pix: "" });
+  
   const [modalFornecedorIA, setModalFornecedorIA] = useState(false);
   const [fornecedorAlvo, setFornecedorAlvo] = useState<any>(null);
   const [estrategiaFornIA, setEstrategiaFornIA] = useState("desconto"); 
@@ -81,10 +85,11 @@ export default function FinanceiroCRMPage() {
   const [analisandoDados, setAnalisandoDados] = useState(false);
   const [relatorioCEO, setRelatorioCEO] = useState("");
 
-  // ESTADOS DESPESAS
   const [formDespesa, setFormDespesa] = useState({ fornecedor: "", descricao: "", categoria: "Estoque / Mercadorias", valor: "", vencimento: "", parcelas: 1, frequencia: "Mensal", pago: "Não" });
 
+  // ==========================================
   // CÁLCULOS GLOBAIS
+  // ==========================================
   const receitaMes = 18450.00;
   const despesasPagas = DESPESAS_MOCK.filter(d => d.status === "Pago").reduce((acc, d) => acc + d.valor, 0);
   const despesasPendentes = DESPESAS_MOCK.filter(d => d.status === "Pendente").reduce((acc, d) => acc + d.valor, 0);
@@ -92,14 +97,17 @@ export default function FinanceiroCRMPage() {
   const inadimplencia = CLIENTES_MOCK.filter(r => r.atraso > 0).reduce((acc, r) => acc + r.valor_pendente, 0);
   const lucroLiquidoAtual = receitaMes - despesasPagas;
 
+  // ==========================================
+  // MEMÓRIA MUSCULAR
+  // ==========================================
   useEffect(() => {
     const draftMsg = localStorage.getItem("@baply_crm_msg");
-    const draftEstrategia = localStorage.getItem("@baply_crm_estrategia");
+    const draftTom = localStorage.getItem("@baply_crm_tom");
     const draftClienteId = localStorage.getItem("@baply_crm_cliente_id");
     const draftFormCliente = localStorage.getItem("@baply_crm_form_novo_cli");
 
     if (draftMsg) setMensagemGerada(draftMsg);
-    if (draftEstrategia) setEstrategiaIA(draftEstrategia);
+    if (draftTom) setTomCobranca(Number(draftTom));
     if (draftFormCliente) setFormCliente(JSON.parse(draftFormCliente));
     
     if (draftClienteId) {
@@ -118,24 +126,25 @@ export default function FinanceiroCRMPage() {
     if (isInicializado) {
       if (modalCobranca && clienteAlvo) {
         localStorage.setItem("@baply_crm_msg", mensagemGerada);
-        localStorage.setItem("@baply_crm_estrategia", estrategiaIA);
+        localStorage.setItem("@baply_crm_tom", tomCobranca.toString());
         localStorage.setItem("@baply_crm_cliente_id", clienteAlvo.id);
       }
       if (modalNovoCliente) {
         localStorage.setItem("@baply_crm_form_novo_cli", JSON.stringify(formCliente));
       }
     }
-  }, [mensagemGerada, estrategiaIA, clienteAlvo, modalCobranca, formCliente, modalNovoCliente, isInicializado]);
+  }, [mensagemGerada, tomCobranca, clienteAlvo, modalCobranca, formCliente, modalNovoCliente, isInicializado]);
 
   // ==========================================================================
-  // FUNÇÕES CLIENTES E CRM
+  // FUNÇÕES CLIENTES E CRM 4.0
   // ==========================================================================
   const fecharModalCRM = () => {
     setModalCobranca(false);
     setMensagemGerada("");
+    setValorPagamento("");
     setClienteAlvo(null);
     localStorage.removeItem("@baply_crm_msg");
-    localStorage.removeItem("@baply_crm_estrategia");
+    localStorage.removeItem("@baply_crm_tom");
     localStorage.removeItem("@baply_crm_cliente_id");
   };
 
@@ -147,6 +156,7 @@ export default function FinanceiroCRMPage() {
 
   const abrirCobranca = (cliente: any) => {
     setClienteAlvo(cliente);
+    setValorPagamento("");
     if (clienteAlvo?.id !== cliente.id) setMensagemGerada("");
     setModalCobranca(true);
   };
@@ -946,7 +956,7 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
       {/* 🚀 MODAL: NEGOCIADOR DE COBRANÇA CRM 4.0 (I.A. + FIFO VISUAL) */}
       {/* ====================================================================== */}
       {modalCobranca && clienteAlvo && (
-        <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[60] flex justify-end animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={fecharModalCRM}></div>
 
           <div className="relative w-full max-w-lg bg-stone-50 dark:bg-stone-900 h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col border-l border-stone-200 dark:border-stone-800">
