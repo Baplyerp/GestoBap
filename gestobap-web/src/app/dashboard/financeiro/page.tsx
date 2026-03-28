@@ -36,10 +36,11 @@ const FATURAS_MOCK = [
   { id: "FAT-004", cliente_id: "CLI-103", mes: "Janeiro/26", valor: 300.00 },
 ];
 
-const FORNECEDORES_MOCK = [
-  { id: "FORN-001", nome: "Buddemeyer S.A.", cnpj: "00.000.000/0001-00", categoria: "Indústria Têxtil", telefone: "5547999999999", contato: "Sr. Roberto (Vendas)" },
-  { id: "FORN-002", nome: "Karsten", cnpj: "11.111.111/0001-11", categoria: "Cama, Mesa e Banho", telefone: "5547888888888", contato: "Ana (Logística)" },
-  { id: "FORN-003", nome: "Embalagens Express", cnpj: "22.222.222/0001-22", categoria: "Insumos", telefone: "5511988888888", contato: "Central" }
+const FATURAS_MOCK = [
+  { id: "FAT-001", cliente_id: "CLI-101", mes: "Janeiro/26", valor: 50.00 },
+  { id: "FAT-002", cliente_id: "CLI-101", mes: "Fevereiro/26", valor: 95.00 },
+  { id: "FAT-003", cliente_id: "CLI-103", mes: "Dezembro/25", valor: 150.00 },
+  { id: "FAT-004", cliente_id: "CLI-103", mes: "Janeiro/26", valor: 300.00 },
 ];
 
 export default function FinanceiroCRMPage() {
@@ -54,6 +55,7 @@ export default function FinanceiroCRMPage() {
   // ESTADOS CRM (CLIENTES)
   const [modalCobranca, setModalCobranca] = useState(false);
   const [clienteAlvo, setClienteAlvo] = useState<any>(null);
+  const [estrategiaIA, setEstrategiaIA] = useState("amigavel");
   const [valorPagamento, setValorPagamento] = useState<number | "">("");
   const [tomCobranca, setTomCobranca] = useState<number>(3); // Slider de 1 a 5
   const [gerandoMensagem, setGerandoMensagem] = useState(false);
@@ -168,7 +170,6 @@ export default function FinanceiroCRMPage() {
       const nome = clienteAlvo.cliente.split(' ')[0];
       const valor = clienteAlvo.valor_pendente.toFixed(2).replace('.', ',');
 
-      // A Inteligência da Régua de Tom (1 a 5)
       if (tomCobranca === 1) {
         msg = `Oiii, ${nome}! 🌸 Tudo bem com você e com a família? Passando aqui rapidinho pois notei que o sistema não identificou o seu pagamento de R$ ${valor}. Aconteceu algum imprevisto? Se precisar de ajuda, estou aqui! 🥰\n\nSeu extrato detalhado: ${linkFatura}`;
       } else if (tomCobranca === 2) {
@@ -963,7 +964,6 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               
-              {/* O HEADER DO CLIENTE */}
               <div className={`border rounded-2xl p-5 relative overflow-hidden ${clienteAlvo.atraso > 0 ? "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20" : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"}`}>
                 {clienteAlvo.atraso > 0 ? (
                   <AlertTriangle size={80} className="absolute -right-4 -bottom-4 text-rose-200 dark:text-rose-900/30 opacity-50" />
@@ -1006,7 +1006,6 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
                     </div>
                   </div>
 
-                  {/* Lógica Visual da Cachoeira */}
                   <div className="space-y-3">
                     {(() => {
                       const faturasDaCliente = FATURAS_MOCK.filter(f => f.cliente_id === clienteAlvo.id);
@@ -1026,9 +1025,7 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
 
                         return (
                           <div key={fat.id} className="relative bg-stone-50 dark:bg-stone-900/50 rounded-xl overflow-hidden border border-stone-100 dark:border-stone-800">
-                            {/* Barra de Progresso no Fundo */}
                             <div className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${isQuitada ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-amber-100 dark:bg-amber-900/40'}`} style={{ width: `${pct}%` }}></div>
-                            
                             <div className="relative z-10 p-3 flex justify-between items-center">
                               <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400">{fat.mes} • {fat.id}</p>
