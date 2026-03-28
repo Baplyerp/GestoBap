@@ -29,6 +29,13 @@ const CLIENTES_MOCK = [
   { id: "CLI-103", cliente: "Juliana Silva", telefone: "5511777777777", endereco: "Rua Augusta, 500 - Consolação", valor_pendente: 450.00, atraso: 45, status_divida: "Crítico", risco: "Crítico", ltv: 450.00, cashback: 0.00, ultima_interacao: "Promessa Quebrada (Há 15 dias)" },
 ];
 
+const FATURAS_MOCK = [
+  { id: "FAT-001", cliente_id: "CLI-101", mes: "Janeiro/26", valor: 50.00 },
+  { id: "FAT-002", cliente_id: "CLI-101", mes: "Fevereiro/26", valor: 95.00 },
+  { id: "FAT-003", cliente_id: "CLI-103", mes: "Dezembro/25", valor: 150.00 },
+  { id: "FAT-004", cliente_id: "CLI-103", mes: "Janeiro/26", valor: 300.00 },
+];
+
 const FORNECEDORES_MOCK = [
   { id: "FORN-001", nome: "Buddemeyer S.A.", cnpj: "00.000.000/0001-00", categoria: "Indústria Têxtil", telefone: "5547999999999", contato: "Sr. Roberto (Vendas)" },
   { id: "FORN-002", nome: "Karsten", cnpj: "11.111.111/0001-11", categoria: "Cama, Mesa e Banho", telefone: "5547888888888", contato: "Ana (Logística)" },
@@ -47,7 +54,8 @@ export default function FinanceiroCRMPage() {
   // ESTADOS CRM (CLIENTES)
   const [modalCobranca, setModalCobranca] = useState(false);
   const [clienteAlvo, setClienteAlvo] = useState<any>(null);
-  const [estrategiaIA, setEstrategiaIA] = useState("amigavel");
+  const [valorPagamento, setValorPagamento] = useState<number | "">("");
+  const [tomCobranca, setTomCobranca] = useState<number>(3); // Slider de 1 a 5
   const [gerandoMensagem, setGerandoMensagem] = useState(false);
   const [mensagemGerada, setMensagemGerada] = useState("");
   const [automacaoLigada, setAutomacaoLigada] = useState(false);
@@ -156,16 +164,26 @@ export default function FinanceiroCRMPage() {
     setGerandoMensagem(true);
     setTimeout(() => {
       let msg = "";
-      if (estrategiaIA === "amigavel") {
-        msg = `Olá, ${clienteAlvo.cliente.split(' ')[0]}! Tudo bem com você? 🌸\n\nAqui é do setor financeiro da Sweet Home. Passando rapidinho só para te lembrar da sua parcela do Sweet Flex no valor de R$ ${clienteAlvo.valor_pendente.toFixed(2).replace('.', ',')}, que acabou passando do vencimento.\n\nEsqueceu? Não tem problema nenhum! Posso te mandar a chave Pix atualizada para baixarmos isso no sistema? 🥰`;
-      } else if (estrategiaIA === "negociacao") {
-        msg = `Olá, ${clienteAlvo.cliente.split(' ')[0]}. Tudo bem?\n\nConsta em nosso sistema um atraso de ${clienteAlvo.atraso} dias referente à sua parcela de R$ ${clienteAlvo.valor_pendente.toFixed(2).replace('.', ',')}. \n\nPara mantermos o seu limite do Sweet Flex ativo e evitarmos o bloqueio de juros, preparamos uma isenção especial das multas se o acerto for feito hoje. Como podemos te ajudar a regularizar essa pendência? 🤝`;
+      const linkFatura = `🌐 baply.com/fatura/${clienteAlvo.id}`;
+      const nome = clienteAlvo.cliente.split(' ')[0];
+      const valor = clienteAlvo.valor_pendente.toFixed(2).replace('.', ',');
+
+      // A Inteligência da Régua de Tom (1 a 5)
+      if (tomCobranca === 1) {
+        msg = `Oiii, ${nome}! 🌸 Tudo bem com você e com a família? Passando aqui rapidinho pois notei que o sistema não identificou o seu pagamento de R$ ${valor}. Aconteceu algum imprevisto? Se precisar de ajuda, estou aqui! 🥰\n\nSeu extrato detalhado: ${linkFatura}`;
+      } else if (tomCobranca === 2) {
+        msg = `Olá, ${nome}! Tudo bem? ✨ Aqui é do financeiro da Sweet Home. Passando para lembrar da sua parcela de R$ ${valor} do Sweet Flex. Esqueceu? Não tem problema! Segue o link com o seu extrato e a nossa chave Pix: ${linkFatura} 💖`;
+      } else if (tomCobranca === 3) {
+        msg = `Olá, ${nome}. Como vai?\n\nConsta em nosso sistema uma pendência de R$ ${valor} referente às suas compras. Para mantermos o seu limite ativo e evitarmos juros, acesse o seu extrato e veja as opções de regularização: ${linkFatura} 🤝`;
+      } else if (tomCobranca === 4) {
+        msg = `Olá, ${nome}.\n\nIdentificamos um atraso de ${clienteAlvo.atraso} dias na sua parcela de R$ ${valor}. É importante regularizarmos isso hoje para evitar o bloqueio do seu crédito 'Sweet Flex'.\n\nConsulte os valores com multa e gere o Pix aqui: ${linkFatura}`;
       } else {
-        msg = `Oiii, ${clienteAlvo.cliente.split(' ')[0]}! ✨ Passando para agradecer por manter seus pagamentos em dia! Como recompensa, você tem R$ ${clienteAlvo.cashback.toFixed(2).replace('.', ',')} de Cashback liberado para usar na loja! Venha nos visitar. 🛍️💖`;
+        msg = `Prezada ${nome},\n\nEste é um aviso de bloqueio de crédito. O seu débito de R$ ${valor} ultrapassou o limite de tolerância. Para regularizar a situação e evitar restrições, efetue o pagamento imediatamente através do seu link exclusivo: ${linkFatura}`;
       }
+
       setMensagemGerada(msg);
       setGerandoMensagem(false);
-      toast.success("Mensagem persuasiva gerada com sucesso!");
+      toast.success("Mensagem estruturada com Inteligência Artificial!");
     }, 1500);
   };
 
@@ -924,19 +942,19 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
       )}
 
       {/* ====================================================================== */}
-      {/* 🚀 MODAL: NEGOCIADOR DE COBRANÇA CRM (I.A.) */}
+      {/* 🚀 MODAL: NEGOCIADOR DE COBRANÇA CRM 4.0 (I.A. + FIFO VISUAL) */}
       {/* ====================================================================== */}
       {modalCobranca && clienteAlvo && (
         <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={fecharModalCRM}></div>
 
-          <div className="relative w-full max-w-md bg-stone-50 dark:bg-stone-900 h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col border-l border-stone-200 dark:border-stone-800">
+          <div className="relative w-full max-w-lg bg-stone-50 dark:bg-stone-900 h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col border-l border-stone-200 dark:border-stone-800">
             <div className="p-6 border-b border-stone-200 dark:border-stone-800 flex justify-between items-center bg-white dark:bg-stone-950 shrink-0">
               <div>
                 <h2 className="text-xl font-black text-stone-900 dark:text-white flex items-center gap-2">
-                  <MessageCircleHeart size={20} className="text-rose-500" /> Estúdio de Relacionamento
+                  <MessageCircleHeart size={20} className="text-rose-500" /> Estúdio 360º
                 </h2>
-                <p className="text-sm font-medium text-stone-500">Aumente o LTV de forma inteligente.</p>
+                <p className="text-sm font-medium text-stone-500">Concierge Financeiro e FIFO Automático.</p>
               </div>
               <button onClick={fecharModalCRM} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors">
                 <X size={20} />
@@ -944,74 +962,134 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              
+              {/* O HEADER DO CLIENTE */}
               <div className={`border rounded-2xl p-5 relative overflow-hidden ${clienteAlvo.atraso > 0 ? "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20" : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"}`}>
                 {clienteAlvo.atraso > 0 ? (
                   <AlertTriangle size={80} className="absolute -right-4 -bottom-4 text-rose-200 dark:text-rose-900/30 opacity-50" />
                 ) : (
                   <Target size={80} className="absolute -right-4 -bottom-4 text-emerald-200 dark:text-emerald-900/30 opacity-50" />
                 )}
-                
                 <h3 className={`font-black mb-1 relative z-10 ${clienteAlvo.atraso > 0 ? "text-rose-900 dark:text-rose-300" : "text-emerald-900 dark:text-emerald-300"}`}>{clienteAlvo.cliente}</h3>
-                
                 <div className={`space-y-1 relative z-10 text-sm font-medium ${clienteAlvo.atraso > 0 ? "text-rose-700 dark:text-rose-400/80" : "text-emerald-700 dark:text-emerald-400/80"}`}>
                   {clienteAlvo.atraso > 0 ? (
                     <>
-                      <p>Dívida Atual: <strong className="text-rose-900 dark:text-rose-300">R$ {clienteAlvo.valor_pendente.toFixed(2).replace('.', ',')}</strong></p>
-                      <p>Atraso: <strong className="text-red-600 dark:text-red-400">{clienteAlvo.atraso} dias</strong></p>
+                      <p>Dívida Total: <strong className="text-rose-900 dark:text-rose-300 text-lg">R$ {clienteAlvo.valor_pendente.toFixed(2).replace('.', ',')}</strong></p>
+                      <p>Risco: <strong className="text-red-600 dark:text-red-400 uppercase tracking-wider">{clienteAlvo.risco} ({clienteAlvo.atraso} dias)</strong></p>
                     </>
                   ) : (
                     <>
-                      <p>LTV (Total Gasto): <strong className="text-emerald-900 dark:text-emerald-300">R$ {clienteAlvo.ltv.toFixed(2).replace('.', ',')}</strong></p>
-                      <p>Cashback Parado: <strong className="text-emerald-900 dark:text-emerald-300">R$ {clienteAlvo.cashback.toFixed(2).replace('.', ',')}</strong></p>
+                      <p>LTV (Total Gasto): <strong className="text-emerald-900 dark:text-emerald-300 text-lg">R$ {clienteAlvo.ltv.toFixed(2).replace('.', ',')}</strong></p>
+                      <p>Cashback Disponível: <strong className="text-emerald-900 dark:text-emerald-300">R$ {clienteAlvo.cashback.toFixed(2).replace('.', ',')}</strong></p>
                     </>
                   )}
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-4">
-                <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest flex items-center gap-2 mb-3"><History size={14}/> Última Interação</h4>
-                <div className="flex gap-3">
-                  <div className="w-1.5 rounded-full bg-stone-200 dark:bg-stone-700"></div>
-                  <div>
-                    <p className="text-sm font-bold text-stone-900 dark:text-white">{clienteAlvo.ultima_interacao}</p>
-                    <p className="text-xs text-stone-500">Via Sistema Baply</p>
+              {/* O NOVO SISTEMA FIFO (CASCATA VISUAL) */}
+              {clienteAlvo.atraso > 0 && (
+                <div className="bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl p-5 shadow-sm">
+                  <h4 className="text-xs font-bold text-stone-500 uppercase tracking-widest flex items-center gap-2 mb-4"><Landmark size={14}/> Abatimento Inteligente (FIFO)</h4>
+                  
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-stone-100 dark:bg-stone-900 text-stone-400 flex items-center justify-center shrink-0"><DollarSign size={16} /></div>
+                    <div className="relative w-full">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm font-bold">R$</span>
+                      <input 
+                        type="number" 
+                        value={valorPagamento}
+                        onChange={(e) => setValorPagamento(e.target.value === "" ? "" : Number(e.target.value))}
+                        placeholder="Valor pago pela cliente..." 
+                        min="0" step="0.01"
+                        className="w-full pl-9 pr-4 py-2.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl text-sm font-bold focus:outline-none focus:border-rose-500 text-stone-900 dark:text-white transition-all shadow-inner"
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <BrainCircuit size={14} /> Direcionamento da I.A.
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {clienteAlvo.atraso > 0 ? (
-                    <>
-                      <button onClick={() => setEstrategiaIA("amigavel")} className={`py-3 px-4 rounded-xl border text-sm font-bold transition-all ${estrategiaIA === "amigavel" ? "bg-indigo-50 dark:bg-indigo-500/20 border-indigo-300 dark:border-indigo-500/50 text-indigo-700 dark:text-indigo-300" : "bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500 hover:border-stone-300"}`}>
-                        🤝 Amigável
-                      </button>
-                      <button onClick={() => setEstrategiaIA("negociacao")} className={`py-3 px-4 rounded-xl border text-sm font-bold transition-all ${estrategiaIA === "negociacao" ? "bg-rose-50 dark:bg-rose-500/20 border-rose-300 dark:border-rose-500/50 text-rose-700 dark:text-rose-300" : "bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500 hover:border-stone-300"}`}>
-                        🚨 Acordo / Isenção
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => setEstrategiaIA("fidelizacao")} className={`col-span-2 py-3 px-4 rounded-xl border text-sm font-bold transition-all ${estrategiaIA === "fidelizacao" ? "bg-emerald-50 dark:bg-emerald-500/20 border-emerald-300 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-300" : "bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500 hover:border-stone-300"}`}>
-                        🎁 Oferecer Cashback
-                      </button>
-                    </>
+                  {/* Lógica Visual da Cachoeira */}
+                  <div className="space-y-3">
+                    {(() => {
+                      const faturasDaCliente = FATURAS_MOCK.filter(f => f.cliente_id === clienteAlvo.id);
+                      let saldoRestante = Number(valorPagamento) || 0;
+
+                      return faturasDaCliente.map((fat) => {
+                        let valorAbatido = 0;
+                        if (saldoRestante >= fat.valor) {
+                          valorAbatido = fat.valor;
+                          saldoRestante -= fat.valor;
+                        } else if (saldoRestante > 0) {
+                          valorAbatido = saldoRestante;
+                          saldoRestante = 0;
+                        }
+                        const pct = (valorAbatido / fat.valor) * 100;
+                        const isQuitada = pct === 100;
+
+                        return (
+                          <div key={fat.id} className="relative bg-stone-50 dark:bg-stone-900/50 rounded-xl overflow-hidden border border-stone-100 dark:border-stone-800">
+                            {/* Barra de Progresso no Fundo */}
+                            <div className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${isQuitada ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-amber-100 dark:bg-amber-900/40'}`} style={{ width: `${pct}%` }}></div>
+                            
+                            <div className="relative z-10 p-3 flex justify-between items-center">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400">{fat.mes} • {fat.id}</p>
+                                <p className={`text-sm font-bold ${isQuitada ? 'text-emerald-700 dark:text-emerald-400' : 'text-stone-900 dark:text-white'}`}>R$ {fat.valor.toFixed(2).replace('.', ',')}</p>
+                              </div>
+                              <div className="text-right">
+                                {valorAbatido > 0 && <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded uppercase tracking-wider">- R$ {valorAbatido.toFixed(2).replace('.', ',')}</span>}
+                                {isQuitada && <CheckCircle2 size={16} className="text-emerald-500 mt-1 inline-block ml-2"/>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                  
+                  {Number(valorPagamento) > 0 && (
+                    <button onClick={() => { toast.success("FIFO Executado! Saldo devedor atualizado e registrado no Log de Auditoria."); setValorPagamento(""); }} className="w-full flex items-center justify-center gap-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-black text-sm py-3 rounded-xl hover:bg-stone-800 dark:hover:bg-white transition-all shadow-md active:scale-[0.98] mt-4">
+                      <Save size={16} /> Processar Abatimento e Gerar Recibo
+                    </button>
                   )}
+                </div>
+              )}
+
+              {/* O ESTÚDIO DE I.A. (RÉGUA DE TOM) */}
+              <div className="space-y-4 bg-indigo-50/50 dark:bg-indigo-500/5 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20">
+                <label className="text-xs font-bold text-indigo-800 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <BrainCircuit size={14} /> Tone Slider (I.A. Copilot)
+                </label>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                    <span className={tomCobranca === 1 ? "text-indigo-600 dark:text-indigo-400" : ""}>🥰 Empático</span>
+                    <span className={tomCobranca === 5 ? "text-rose-600 dark:text-rose-400" : ""}>🚨 Ultimato</span>
+                  </div>
+                  <input 
+                    type="range" min="1" max="5" value={tomCobranca} onChange={(e) => setTomCobranca(Number(e.target.value))}
+                    className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <div className="text-center mt-2">
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-stone-900 px-3 py-1 rounded-full shadow-sm border border-indigo-100 dark:border-indigo-500/20">
+                      {tomCobranca === 1 && "Nível 1: Super Amigável e Compreensivo"}
+                      {tomCobranca === 2 && "Nível 2: Lembrete Gentil (Padrão)"}
+                      {tomCobranca === 3 && "Nível 3: Profissional e Direto"}
+                      {tomCobranca === 4 && "Nível 4: Firme (Foco na Quebra de Acordo)"}
+                      {tomCobranca === 5 && "Nível 5: Implacável (Aviso de Bloqueio Serasa)"}
+                    </span>
+                  </div>
                 </div>
                 
                 <button 
                   onClick={gerarMensagemIA}
                   disabled={gerandoMensagem}
-                  className="w-full flex items-center justify-center gap-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 font-black text-sm py-3.5 rounded-xl hover:bg-stone-800 dark:hover:bg-white transition-all shadow-md active:scale-[0.98] disabled:opacity-50 mt-2"
+                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white font-black text-sm py-3.5 rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-50 mt-2"
                 >
                   {gerandoMensagem ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                  {gerandoMensagem ? "Escrevendo..." : "Gerar Texto com I.A."}
+                  {gerandoMensagem ? "Gerando Script..." : "Escrever Mensagem e Link Dinâmico"}
                 </button>
               </div>
 
+              {/* A ÁREA DA MENSAGEM GERADA E ZAP */}
               {mensagemGerada && (
                 <div className="space-y-2 animate-in slide-in-from-bottom-4 duration-300">
                   <label className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest flex justify-between">
@@ -1021,7 +1099,7 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
                   <textarea 
                     value={mensagemGerada}
                     onChange={(e) => setMensagemGerada(e.target.value)}
-                    rows={8}
+                    rows={7}
                     className="w-full px-4 py-3 bg-white dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition-all dark:text-white resize-none shadow-inner"
                   />
                   
@@ -1038,12 +1116,12 @@ Utilize o módulo de CRM hoje para acionar os clientes com *Risco Excelente* que
                   
                   <button 
                     onClick={() => {
-                      toast.success("Ação arquivada com sucesso no CRM!");
+                      toast.success("Ação arquivada no Histórico de Contatos!");
                       fecharModalCRM();
                     }}
                     className="w-full flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 font-bold text-sm py-3 rounded-xl hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors mt-2"
                   >
-                    Dar Baixa e Limpar Rascunho
+                    Marcar como Contatado e Fechar
                   </button>
                 </div>
               )}
